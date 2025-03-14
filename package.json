@@ -1,15 +1,36 @@
 {
   "name": "id-scanner-lib",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "type": "module",
   "main": "dist/id-scanner.js",
-  "module": "dist/id-scanner.esm.js",
-  "types": "dist/index.d.ts",
+  "module": "dist/id-scanner-core.esm.js",
+  "exports": {
+    ".": {
+      "import": "./dist/id-scanner-core.esm.js",
+      "require": "./dist/id-scanner.js"
+    },
+    "./core": {
+      "import": "./dist/id-scanner-core.esm.js",
+      "require": "./dist/id-scanner-core.js"
+    },
+    "./ocr": {
+      "import": "./dist/id-scanner-ocr.esm.js",
+      "require": "./dist/id-scanner-ocr.js"
+    },
+    "./qr": {
+      "import": "./dist/id-scanner-qr.esm.js",
+      "require": "./dist/id-scanner-qr.js"
+    }
+  },
+  "types": "dist/types/index.d.ts",
+  "sideEffects": false,
   "scripts": {
     "build": "rollup -c",
     "dev": "rollup -c -w",
     "test": "echo \"Error: no test specified\" && exit 1",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "publish:npm": "node scripts/publish.js",
+    "update:github": "node scripts/update-github.js"
   },
   "keywords": [
     "id-card",

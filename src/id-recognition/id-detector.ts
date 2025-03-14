@@ -6,7 +6,35 @@
 
 import { Camera } from '../utils/camera';
 import { ImageProcessor } from '../utils/image-processing';
-import { DetectionResult } from '../utils/types';
+
+/**
+ * DetectionResult接口
+ * 
+ * 包含身份证检测结果信息
+ */
+export interface DetectionResult {
+  success: boolean;
+  imageData?: ImageData;
+  boundingBox?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  confidence?: number;
+  message?: string;
+  corners?: { x: number; y: number }[];
+  croppedImage?: ImageData;
+}
+
+/**
+ * IDCardDetector配置选项
+ */
+export interface IDCardDetectorOptions {
+  onDetection?: (result: DetectionResult) => void;
+  onError?: (error: Error) => void;
+  detectionInterval?: number;
+}
 
 /**
  * 身份证检测器类

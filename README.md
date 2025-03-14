@@ -37,6 +37,49 @@
 npm install id-scanner-lib
 ```
 
+## 优化引入方式
+
+本库支持多种引入方式，可根据实际需求选择最优方案，减小应用体积：
+
+### 完整引入
+```javascript
+// 引入完整包（包含全部功能）
+import { IDScanner } from 'id-scanner-lib';
+
+const scanner = new IDScanner({
+  onQRCodeScanned: (result) => console.log('扫描结果:', result),
+  onIDCardScanned: (info) => console.log('身份证信息:', info)
+});
+```
+
+### 按需引入
+```javascript
+// 只引入二维码相关功能，减小应用体积
+import { ScannerModule } from 'id-scanner-lib/qr';
+
+const qrScanner = new ScannerModule({
+  onQRCodeScanned: (result) => console.log('二维码:', result)
+});
+```
+
+```javascript
+// 只引入OCR身份证识别功能
+import { OCRModule } from 'id-scanner-lib/ocr';
+
+const ocrScanner = new OCRModule({
+  onIDCardScanned: (info) => console.log('身份证信息:', info)
+});
+```
+
+```javascript
+// 只引入轻量核心功能（无OCR）
+import { IDScannerCore } from 'id-scanner-lib/core';
+
+const coreScanner = new IDScannerCore({
+  onQRCodeScanned: (result) => console.log('扫描结果:', result)
+});
+```
+
 ## 快速开始
 
 ### 基本用法
@@ -262,6 +305,59 @@ A: 库的大小约为1MB，主要是因为包含OCR引擎。可以考虑按需�
 | Safari       | 11+                 | iOS需要用户主动点击激活相机  |
 | 安卓WebView   | 60+                 | 需要应用授予相机权限        |
 | iOS WebView  | 11+                 | 需要用户主动点击激活相机     |
+
+## 体积优化与性能优化
+
+本库设计时考虑了多种使用场景和设备性能限制，提供了多种优化选项：
+
+### 包体积优化
+1. **按需引入模块**：基于ES模块可以实现tree-shaking，只引入需要的功能，如：
+   ```javascript
+   // 只需要二维码功能时，包体积减小约65%
+   import { ScannerModule } from 'id-scanner-lib/qr';
+   ```
+
+2. **延迟加载OCR引擎**：OCR引擎体积较大，默认采用延迟加载策略：
+   ```javascript
+   // OCR引擎只在实际使用身份证识别功能时才会加载
+   const scanner = new IDScanner();
+   
+   // 这一步不会加载OCR引擎
+   await scanner.startQRScanner(videoElement);
+   
+   // 只有在需要识别身份证时才会加载OCR引擎
+   await scanner.startIDCardScanner(videoElement);
+   ```
+
+3. **分包构建**：完整库约1MB，但按功能拆分后最小可达200KB：
+   - 核心包 (无OCR): 约200KB
+   - 二维码扫描: 约350KB
+   - OCR模块: 约650KB
+
+4. **CDN加载**：可以通过CDN加载以加快访问速度：
+   ```html
+   <!-- 完整版 -->
+   <script src="https://cdn.jsdelivr.net/npm/id-scanner-lib/dist/id-scanner.min.js"></script>
+   
+   <!-- 或仅加载核心功能 -->
+   <script src="https://cdn.jsdelivr.net/npm/id-scanner-lib/dist/id-scanner-core.min.js"></script>
+   ```
+
+5. **版本更新记录**：
+   - v1.0.0: 首次发布版本
+   - v1.1.0: 模块化重构，实现按需加载，大幅减小体积
+
+### 运行时性能
+1. **摄像头参数自动优化**：根据设备性能自动调整摄像头分辨率
+2. **OCR引擎缓存**：OCR引擎加载后会缓存，避免重复加载
+3. **资源释放**：不使用时自动释放内存资源
+4. **图像预处理**：针对不同光线条件优化识别准确率
+
+### 推荐做法
+- 在应用初始化阶段，先使用核心功能
+- 为OCR等重型功能设置单独的入口或交互按钮
+- 在用户可能需要OCR前预加载，但不立即初始化
+- 实现加载状态UI反馈，提升用户体验
 
 ## 开发与贡献
 

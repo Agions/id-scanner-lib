@@ -34,13 +34,13 @@ export interface CameraOptions {
  * 
  * // 初始化相机
  * const videoElement = document.getElementById('video') as HTMLVideoElement;
- * await camera.initialize(videoElement);
+ * await camera.start(videoElement);
  * 
  * // 捕获当前视频帧
  * const imageData = camera.captureFrame();
  * 
  * // 使用结束后释放资源
- * camera.release();
+ * camera.stop();
  * ```
  */
 export class Camera {
@@ -49,7 +49,6 @@ export class Camera {
   
   /**
    * 创建相机实例
-   * 
    * @param {CameraOptions} [options] - 相机配置选项
    */
   constructor(private options: CameraOptions = {}) {
@@ -62,75 +61,101 @@ export class Camera {
   }
   
   /**
-   * 初始化相机，请求摄像头权限并设置视频流
+   * 启动摄像头并将视频流绑定到视频元素
+   * @param videoElement HTML视频元素
+   * @returns Promise<void>
+   */
+  async start(videoElement: HTMLVideoElement): Promise<void> {
+    return this.initialize(videoElement);
+  }
+  
+  /**
+   * 停止摄像头并释放资源
+   */
+  stop(): void {
+    this.release();
+  }
+  
+  /**
+   * 初始化相机，获取视频流并绑定到视频元素
    * 
-   * @param {HTMLVideoElement} videoElement - 用于显示相机画面的video元素
+   * @param {HTMLVideoElement} videoElement - 用于显示视频流的视频元素
    * @returns {Promise<void>} 初始化完成的Promise
-   * @throws 如果无法访问相机，将抛出错误
+   * @throws 如果无法访问摄像头，将抛出错误
    */
   async initialize(videoElement: HTMLVideoElement): Promise<void> {
+    this.videoElement = videoElement;
+    
     try {
-      this.videoElement = videoElement;
-      
+      // 构建媒体约束
       const constraints: MediaStreamConstraints = {
         video: {
-          width: this.options.width,
-          height: this.options.height,
+          width: { ideal: this.options.width },
+          height: { ideal: this.options.height },
           facingMode: this.options.facingMode
         }
       };
       
+      // 获取视频流
       this.stream = await navigator.mediaDevices.getUserMedia(constraints);
-      this.videoElement.srcObject = this.stream;
       
-      return new Promise((resolve) => {
-        if (this.videoElement) {
-          this.videoElement.onloadedmetadata = () => {
-            if (this.videoElement) {
-              this.videoElement.play();
-              resolve();
-            }
-          };
-        }
-      });
+      // 绑定到视频元素
+      if (this.videoElement) {
+        this.videoElement.srcObject = this.stream;
+        await new Promise<void>((resolve) => {
+          if (this.videoElement) {
+            this.videoElement.onloadedmetadata = () => {
+              if (this.videoElement) {
+                this.videoElement.play().then(() => resolve());
+              }
+            };
+          }
+        });
+      }
     } catch (error) {
-      console.error('相机初始化失败:', error);
-      throw new Error('无法访问相机');
+      console.error('无法访问摄像头:', error);
+      throw new Error('无法访问摄像头。请确保已授予摄像头访问权限，并且摄像头未被其他应用程序占用。');
     }
   }
   
   /**
-   * 获取当前视频帧
+   * 捕获当前视频帧
    * 
-   * 捕获当前视频画面并转换为ImageData对象，可用于图像处理和分析
-   * 
-   * @returns {ImageData|null} 当前视频帧的ImageData对象，如果未初始化视频则返回null
+   * @returns {ImageData|null} 视频帧的ImageData对象，如果未初始化则返回null
    */
   captureFrame(): ImageData | null {
-    if (!this.videoElement) return null;
+    if (!this.videoElement) {
+      return null;
+    }
     
+    // 创建Canvas元素用于捕获视频帧
     const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return null;
-    
     canvas.width = this.videoElement.videoWidth;
     canvas.height = this.videoElement.videoHeight;
-    ctx.drawImage(this.videoElement, 0, 0);
     
-    return ctx.getImageData(0, 0, canvas.width, canvas.height);
+    const context = canvas.getContext('2d');
+    if (!context) {
+      return null;
+    }
+    
+    // 将视频内容绘制到Canvas中
+    context.drawImage(this.videoElement, 0, 0, canvas.width, canvas.height);
+    
+    // 获取ImageData对象
+    return context.getImageData(0, 0, canvas.width, canvas.height);
   }
   
   /**
-   * 释放相机资源
-   * 
-   * 停止所有视频流轨道并清理资源。在不再需要相机时应调用此方法。
+   * 释放摄像头资源
    */
   release(): void {
+    // 停止视频流的所有轨道
     if (this.stream) {
       this.stream.getTracks().forEach(track => track.stop());
       this.stream = null;
     }
     
+    // 清除视频元素绑定
     if (this.videoElement) {
       this.videoElement.srcObject = null;
       this.videoElement = null;

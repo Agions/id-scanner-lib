@@ -6,25 +6,15 @@
  * @license MIT
  */
 
-import { QRScanner, QRScannerOptions } from './scanner/qr-scanner';
-import { BarcodeScanner, BarcodeScannerOptions } from './scanner/barcode-scanner';
-import { IDCardDetector } from './id-recognition/id-detector';
-import { OCRProcessor } from './id-recognition/ocr-processor';
-import { DataExtractor } from './id-recognition/data-extractor';
 import { Camera, CameraOptions } from './utils/camera';
-import { ImageProcessor } from './utils/image-processing';
 import { IDCardInfo, DetectionResult } from './utils/types';
+
+// 先只导入类型定义，不导入实际实现
+import type { QRScannerOptions } from './scanner/qr-scanner';
+import type { BarcodeScannerOptions } from './scanner/barcode-scanner';
 
 /**
  * IDScanner配置选项接口
- * @interface IDScannerOptions
- * @property {CameraOptions} [cameraOptions] - 相机配置选项
- * @property {QRScannerOptions} [qrScannerOptions] - 二维码扫描配置选项
- * @property {BarcodeScannerOptions} [barcodeScannerOptions] - 条形码扫描配置选项
- * @property {Function} [onQRCodeScanned] - 二维码识别成功回调
- * @property {Function} [onBarcodeScanned] - 条形码识别成功回调
- * @property {Function} [onIDCardScanned] - 身份证识别成功回调
- * @property {Function} [onError] - 错误处理回调
  */
 export interface IDScannerOptions {
   cameraOptions?: CameraOptions;
@@ -40,189 +30,185 @@ export interface IDScannerOptions {
  * IDScanner 主类
  * 
  * 整合二维码、条形码扫描和身份证识别功能，提供统一的接口
- * 
- * @example
- * ```typescript
- * // 创建扫描器实例
- * const scanner = new IDScanner({
- *   onQRCodeScanned: (result) => {
- *     console.log('扫描到二维码:', result);
- *   },
- *   onIDCardScanned: (info) => {
- *     console.log('识别到身份证信息:', info);
- *   }
- * });
- * 
- * // 初始化OCR引擎和相关资源
- * await scanner.initialize();
- * 
- * // 启动二维码扫描
- * const videoElement = document.getElementById('video');
- * await scanner.startQRScanner(videoElement);
- * 
- * // 停止扫描
- * scanner.stop();
- * 
- * // 使用结束后释放资源
- * scanner.terminate();
- * ```
+ * 使用动态导入实现按需加载
  */
 export class IDScanner {
-  private qrScanner: QRScanner;
-  private barcodeScanner: BarcodeScanner;
-  private idDetector: IDCardDetector;
-  private ocrProcessor: OCRProcessor;
+  private camera: Camera;
   private scanMode: 'qr' | 'barcode' | 'idcard' = 'qr';
+  private videoElement: HTMLVideoElement | null = null;
+  
+  // 延迟加载的模块
+  private qrModule: any = null;
+  private ocrModule: any = null;
+  
+  // 模块加载状态
+  private isQRModuleLoaded: boolean = false;
+  private isOCRModuleLoaded: boolean = false;
   
   /**
-   * 创建IDScanner实例
-   * @param {IDScannerOptions} [options] - 配置选项
+   * 构造函数
+   * @param options 配置选项
    */
   constructor(private options: IDScannerOptions = {}) {
-    this.qrScanner = new QRScanner({
-      ...options.qrScannerOptions,
-      onScan: this.handleQRScan.bind(this),
-      onError: this.handleError.bind(this)
-    });
-    
-    this.barcodeScanner = new BarcodeScanner({
-      ...options.barcodeScannerOptions,
-      onScan: this.handleBarcodeScan.bind(this),
-      onError: this.handleError.bind(this)
-    });
-    
-    this.idDetector = new IDCardDetector(this.handleIDDetection.bind(this));
-    this.ocrProcessor = new OCRProcessor();
+    this.camera = new Camera(options.cameraOptions);
   }
   
   /**
-   * 初始化OCR引擎和相关资源
-   * 
-   * @returns {Promise<void>} 初始化完成的Promise
-   * @throws 如果初始化失败，将抛出错误
+   * 初始化模块
+   * 根据需要初始化OCR引擎
    */
   async initialize(): Promise<void> {
     try {
-      await this.ocrProcessor.initialize();
+      // 预加载OCR模块但不初始化
+      if (!this.isOCRModuleLoaded) {
+        // 动态导入OCR模块
+        const OCRModule = await import('./ocr-module').then(m => m.OCRModule);
+        this.ocrModule = new OCRModule({
+          cameraOptions: this.options.cameraOptions,
+          onIDCardScanned: this.options.onIDCardScanned,
+          onError: this.options.onError
+        });
+        this.isOCRModuleLoaded = true;
+        
+        // 初始化OCR模块
+        await this.ocrModule.initialize();
+      }
+      
+      console.log('IDScanner initialized');
     } catch (error) {
-      this.handleError(error instanceof Error ? error : new Error(String(error)));
+      this.handleError(error as Error);
+      throw error;
     }
   }
   
   /**
    * 启动二维码扫描
-   * 
-   * @param {HTMLVideoElement} videoElement - 用于显示相机画面的video元素
-   * @returns {Promise<void>} 启动完成的Promise
+   * @param videoElement HTML视频元素
    */
   async startQRScanner(videoElement: HTMLVideoElement): Promise<void> {
+    this.stop();
+    this.videoElement = videoElement;
     this.scanMode = 'qr';
-    await this.qrScanner.start(videoElement);
+    
+    try {
+      // 动态加载二维码模块
+      if (!this.isQRModuleLoaded) {
+        const ScannerModule = await import('./qr-module').then(m => m.ScannerModule);
+        this.qrModule = new ScannerModule({
+          cameraOptions: this.options.cameraOptions,
+          qrScannerOptions: this.options.qrScannerOptions,
+          barcodeScannerOptions: this.options.barcodeScannerOptions,
+          onQRCodeScanned: this.options.onQRCodeScanned,
+          onBarcodeScanned: this.options.onBarcodeScanned,
+          onError: this.options.onError
+        });
+        this.isQRModuleLoaded = true;
+      }
+      
+      await this.qrModule.startQRScanner(videoElement);
+    } catch (error) {
+      this.handleError(error as Error);
+    }
   }
   
   /**
    * 启动条形码扫描
-   * 
-   * @param {HTMLVideoElement} videoElement - 用于显示相机画面的video元素
-   * @returns {Promise<void>} 启动完成的Promise
+   * @param videoElement HTML视频元素
    */
   async startBarcodeScanner(videoElement: HTMLVideoElement): Promise<void> {
+    this.stop();
+    this.videoElement = videoElement;
     this.scanMode = 'barcode';
-    await this.barcodeScanner.start(videoElement);
+    
+    try {
+      // 动态加载二维码模块
+      if (!this.isQRModuleLoaded) {
+        const ScannerModule = await import('./qr-module').then(m => m.ScannerModule);
+        this.qrModule = new ScannerModule({
+          cameraOptions: this.options.cameraOptions,
+          qrScannerOptions: this.options.qrScannerOptions,
+          barcodeScannerOptions: this.options.barcodeScannerOptions,
+          onQRCodeScanned: this.options.onQRCodeScanned,
+          onBarcodeScanned: this.options.onBarcodeScanned,
+          onError: this.options.onError
+        });
+        this.isQRModuleLoaded = true;
+      }
+      
+      await this.qrModule.startBarcodeScanner(videoElement);
+    } catch (error) {
+      this.handleError(error as Error);
+    }
   }
   
   /**
-   * 启动身份证扫描识别
-   * 
-   * @param {HTMLVideoElement} videoElement - 用于显示相机画面的video元素
-   * @returns {Promise<void>} 启动完成的Promise
+   * 启动身份证扫描
+   * @param videoElement HTML视频元素
    */
   async startIDCardScanner(videoElement: HTMLVideoElement): Promise<void> {
+    this.stop();
+    this.videoElement = videoElement;
     this.scanMode = 'idcard';
-    await this.idDetector.start(videoElement);
+    
+    try {
+      // 检查OCR模块是否已加载，若未加载则自动初始化
+      if (!this.isOCRModuleLoaded) {
+        await this.initialize();
+      }
+      
+      await this.ocrModule.startIDCardScanner(videoElement);
+    } catch (error) {
+      this.handleError(error as Error);
+    }
   }
   
   /**
-   * 停止当前扫描
+   * 停止扫描
    */
   stop(): void {
-    if (this.scanMode === 'qr') {
-      this.qrScanner.stop();
-    } else if (this.scanMode === 'barcode') {
-      this.barcodeScanner.stop();
-    } else {
-      this.idDetector.stop();
-    }
-  }
-  
-  /**
-   * 处理二维码扫描结果
-   * @private
-   * @param {string} result - 扫描到的二维码内容
-   */
-  private handleQRScan(result: string): void {
-    if (this.options.onQRCodeScanned) {
-      this.options.onQRCodeScanned(result);
-    }
-  }
-  
-  /**
-   * 处理条形码扫描结果
-   * @private
-   * @param {string} result - 扫描到的条形码内容
-   */
-  private handleBarcodeScan(result: string): void {
-    if (this.options.onBarcodeScanned) {
-      this.options.onBarcodeScanned(result);
-    }
-  }
-  
-  /**
-   * 处理身份证检测结果
-   * @private
-   * @param {DetectionResult} result - 身份证检测结果
-   */
-  private async handleIDDetection(result: DetectionResult): Promise<void> {
-    if (result.success && result.croppedImage) {
-      try {
-        const idInfo = await this.ocrProcessor.processIDCard(result.croppedImage);
-        
-        // 使用数据提取工具增强身份证信息
-        const enhancedInfo = DataExtractor.enhanceIDCardInfo(idInfo);
-        
-        if (this.options.onIDCardScanned) {
-          this.options.onIDCardScanned(enhancedInfo);
-        }
-      } catch (error) {
-        this.handleError(error instanceof Error ? error : new Error(String(error)));
+    if (this.scanMode === 'qr' || this.scanMode === 'barcode') {
+      if (this.qrModule) {
+        this.qrModule.stop();
+      }
+    } else if (this.scanMode === 'idcard') {
+      if (this.ocrModule) {
+        this.ocrModule.stop();
       }
     }
   }
   
   /**
    * 处理错误
-   * @private
-   * @param {Error} error - 错误对象
    */
   private handleError(error: Error): void {
     if (this.options.onError) {
       this.options.onError(error);
     } else {
-      console.error('ID扫描器错误:', error);
+      console.error('IDScanner error:', error);
     }
   }
   
   /**
-   * 终止所有扫描并释放资源
-   * 
-   * @returns {Promise<void>} 资源释放完成的Promise
+   * 释放资源
    */
   async terminate(): Promise<void> {
     this.stop();
-    await this.ocrProcessor.terminate();
+    
+    // 释放OCR资源
+    if (this.isOCRModuleLoaded && this.ocrModule) {
+      await this.ocrModule.terminate();
+      this.ocrModule = null;
+      this.isOCRModuleLoaded = false;
+    }
+    
+    // 释放QR扫描资源
+    if (this.isQRModuleLoaded && this.qrModule) {
+      this.qrModule = null;
+      this.isQRModuleLoaded = false;
+    }
   }
 }
 
-// 导出公共API
-export { Camera, QRScanner, BarcodeScanner, IDCardDetector, OCRProcessor, DataExtractor, ImageProcessor };
-export type { CameraOptions, QRScannerOptions, BarcodeScannerOptions, IDCardInfo, DetectionResult }; 
+// 导出核心类型
+export { IDCardInfo } from './utils/types';
+export { CameraOptions } from './utils/camera'; 

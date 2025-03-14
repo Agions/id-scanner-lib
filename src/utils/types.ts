@@ -1,6 +1,6 @@
 /**
  * @file 类型定义文件
- * @description 定义库中使用的公共类型和接口
+ * @description 定义全局类型
  * @module Types
  */
 
@@ -29,11 +29,11 @@ export interface DetectionResult {
  * 
  * @interface IDCardInfo
  * @property {string} [name] - 姓名
- * @property {string} [gender] - 性别，通常为"男"或"女"
- * @property {string} [nationality] - 民族，如"汉族"、"满族"等
- * @property {string} [birthDate] - 出生日期，格式为"YYYY-MM-DD"
- * @property {string} [address] - 住址
- * @property {string} [idNumber] - 身份证号码，18位
+ * @property {string} [gender] - 性别
+ * @property {string} [nationality] - 民族
+ * @property {string} [birthDate] - 出生日期
+ * @property {string} [address] - 地址
+ * @property {string} [idNumber] - 身份证号码
  * @property {string} [issuingAuthority] - 签发机关
  * @property {string} [validPeriod] - 有效期限
  * 

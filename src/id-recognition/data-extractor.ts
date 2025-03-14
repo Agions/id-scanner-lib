@@ -162,4 +162,101 @@ export class DataExtractor {
     
     return result;
   }
+  
+  /**
+   * 提取并验证身份证信息
+   * 
+   * @param idCardInfo 初步提取的身份证信息
+   * @returns 验证和增强后的身份证信息
+   */
+  extractAndValidate(idCardInfo: IDCardInfo): IDCardInfo {
+    const enhancedInfo = {...idCardInfo};
+    
+    // 验证和规范化身份证号
+    if (enhancedInfo.idNumber) {
+      enhancedInfo.idNumber = this.normalizeIDNumber(enhancedInfo.idNumber);
+      
+      // 如果身份证号有效，推断出生日期
+      if (this.validateIDNumber(enhancedInfo.idNumber)) {
+        if (!enhancedInfo.birthDate) {
+          enhancedInfo.birthDate = this.extractBirthDateFromID(enhancedInfo.idNumber);
+        }
+        
+        // 推断性别
+        if (!enhancedInfo.gender) {
+          enhancedInfo.gender = this.extractGenderFromID(enhancedInfo.idNumber);
+        }
+      }
+    }
+    
+    // 规范化日期格式
+    if (enhancedInfo.birthDate) {
+      enhancedInfo.birthDate = this.normalizeDate(enhancedInfo.birthDate);
+    }
+    
+    // 规范化地址信息
+    if (enhancedInfo.address) {
+      enhancedInfo.address = this.normalizeAddress(enhancedInfo.address);
+    }
+    
+    return enhancedInfo;
+  }
+  
+  /**
+   * 规范化身份证号码
+   */
+  private normalizeIDNumber(idNumber: string): string {
+    // 移除空格和特殊字符
+    return idNumber.replace(/[\s\-]/g, '').toUpperCase();
+  }
+  
+  /**
+   * 验证身份证号码是否有效
+   */
+  private validateIDNumber(idNumber: string): boolean {
+    // 简单验证身份证号码长度和格式
+    const idRegex = /(^\d{15}$)|(^\d{17}([0-9]|X)$)/;
+    return idRegex.test(idNumber);
+  }
+  
+  /**
+   * 从身份证号中提取出生日期
+   */
+  private extractBirthDateFromID(idNumber: string): string {
+    if (idNumber.length === 18) {
+      return `${idNumber.substring(6, 10)}-${idNumber.substring(10, 12)}-${idNumber.substring(12, 14)}`;
+    } else if (idNumber.length === 15) {
+      return `19${idNumber.substring(6, 8)}-${idNumber.substring(8, 10)}-${idNumber.substring(10, 12)}`;
+    }
+    return '';
+  }
+  
+  /**
+   * 从身份证号中提取性别信息
+   */
+  private extractGenderFromID(idNumber: string): string {
+    let sexCode: number;
+    if (idNumber.length === 18) {
+      sexCode = parseInt(idNumber.charAt(16));
+    } else {
+      sexCode = parseInt(idNumber.charAt(14));
+    }
+    return sexCode % 2 === 1 ? '男' : '女';
+  }
+  
+  /**
+   * 规范化日期格式
+   */
+  private normalizeDate(date: string): string {
+    // 简单的日期格式化逻辑
+    return date.replace(/(\d{4})(\d{2})(\d{2})/, '$1-$2-$3');
+  }
+  
+  /**
+   * 规范化地址信息
+   */
+  private normalizeAddress(address: string): string {
+    // 地址格式化逻辑
+    return address.trim();
+  }
 } 
