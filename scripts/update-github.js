@@ -43,7 +43,7 @@ async function main() {
     run('git add .');
 
     // 提交
-    const commitMessage = `v${version}: 优化模块化结构，实现按需加载，大幅减小体积`;
+    const commitMessage = `v${version}: 实现多种性能优化策略，提升处理速度和降低资源占用`;
     console.log(`\n📝 提交更改: "${commitMessage}"...`);
     run(`git commit -m "${commitMessage}"`);
 
