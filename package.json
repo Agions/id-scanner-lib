@@ -8,7 +8,8 @@
   "scripts": {
     "build": "rollup -c",
     "dev": "rollup -c -w",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "prepublishOnly": "npm run build"
   },
   "keywords": [
     "id-card",
@@ -19,6 +20,23 @@
   "author": "agions",
   "license": "MIT",
   "description": "一款纯前端实现的TypeScript身份证&二维码识别库，无需后端支持，所有处理在浏览器端完成",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/agions/id-scanner-lib.git"
+  },
+  "bugs": {
+    "url": "https://github.com/agions/id-scanner-lib/issues"
+  },
+  "homepage": "https://github.com/agions/id-scanner-lib#readme",
+  "files": [
+    "dist",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
   "devDependencies": {
     "@rollup/plugin-commonjs": "^28.0.3",
     "@rollup/plugin-json": "^6.1.0",
