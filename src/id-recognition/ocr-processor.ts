@@ -56,11 +56,8 @@ export class OCRProcessor {
   
   /**
    * 处理身份证图像并提取信息
-   * 
-   * 对身份证图像进行OCR识别，并从识别结果中提取结构化信息
-   * 
-   * @param {ImageData} imageData - 身份证图像数据
-   * @returns {Promise<IDCardInfo>} 提取到的身份证信息
+   * @param imageData 要处理的身份证图像数据
+   * @returns 提取的身份证信息
    */
   async processIDCard(imageData: ImageData): Promise<IDCardInfo> {
     if (!this.worker) {
@@ -81,7 +78,7 @@ export class OCRProcessor {
       return this.parseIDCardText(data.text);
     } catch (error) {
       console.error('OCR识别错误:', error);
-      return {}; // 返回空对象
+      return {} as IDCardInfo;
     }
   }
   

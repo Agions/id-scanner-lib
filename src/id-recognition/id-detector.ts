@@ -6,26 +6,7 @@
 
 import { Camera } from '../utils/camera';
 import { ImageProcessor } from '../utils/image-processing';
-
-/**
- * DetectionResult接口
- * 
- * 包含身份证检测结果信息
- */
-export interface DetectionResult {
-  success: boolean;
-  imageData?: ImageData;
-  boundingBox?: {
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  };
-  confidence?: number;
-  message?: string;
-  corners?: { x: number; y: number }[];
-  croppedImage?: ImageData;
-}
+import { DetectionResult } from '../utils/types';
 
 /**
  * IDCardDetector配置选项
@@ -65,14 +46,23 @@ export class IDCardDetector {
   private camera: Camera;
   private detecting = false;
   private detectTimer: number | null = null;
+  private onDetected?: (result: DetectionResult) => void;
   
   /**
    * 创建身份证检测器实例
    * 
-   * @param {Function} [onDetected] - 身份证检测成功回调函数，接收检测结果对象
+   * @param options 身份证检测器配置选项，或者检测回调函数
    */
-  constructor(private onDetected?: (result: DetectionResult) => void) {
+  constructor(options?: IDCardDetectorOptions | ((result: DetectionResult) => void)) {
     this.camera = new Camera();
+    
+    if (typeof options === 'function') {
+      // 兼容旧的构造函数方式
+      this.onDetected = options;
+    } else if (options) {
+      // 使用新的选项对象方式
+      this.onDetected = options.onDetection;
+    }
   }
   
   /**

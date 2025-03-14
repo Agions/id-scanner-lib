@@ -14,7 +14,7 @@ import type { BarcodeScannerOptions } from './scanner/barcode-scanner';
 // 静态导入所有依赖
 import { QRScanner } from './scanner/qr-scanner';
 import { BarcodeScanner } from './scanner/barcode-scanner';
-import { IDCardDetector } from './id-recognition/id-detector';
+import { IDCardDetector, IDCardDetectorOptions } from './id-recognition/id-detector';
 import { OCRProcessor } from './id-recognition/ocr-processor';
 import { DataExtractor } from './id-recognition/data-extractor';
 import { ImageProcessor } from './utils/image-processing';
@@ -138,7 +138,7 @@ export class IDScanner {
         this.idDetector = new IDCardDetector({
           onDetection: this.handleIDDetection.bind(this),
           onError: this.handleError.bind(this)
-        });
+        } as IDCardDetectorOptions);
       }
       
       await this.camera.start(videoElement);
@@ -188,6 +188,12 @@ export class IDScanner {
     if (!this.ocrProcessor || !this.dataExtractor) return;
     
     try {
+      // 检查 imageData 是否存在
+      if (!result.imageData) {
+        this.handleError(new Error('无效的图像数据'));
+        return;
+      }
+      
       const idCardInfo = await this.ocrProcessor.processIDCard(result.imageData);
       const extractedInfo = this.dataExtractor.extractAndValidate(idCardInfo);
       

@@ -15,11 +15,28 @@
  * @property {number} corners[].x - 角点X坐标
  * @property {number} corners[].y - 角点Y坐标
  * @property {ImageData} [croppedImage] - 裁剪后的身份证图像
+ * @property {ImageData} [imageData] - 原始图像数据
+ * @property {Object} [boundingBox] - 检测到的身份证边界框
+ * @property {number} boundingBox.x - 边界框左上角X坐标
+ * @property {number} boundingBox.y - 边界框左上角Y坐标
+ * @property {number} boundingBox.width - 边界框宽度
+ * @property {number} boundingBox.height - 边界框高度
+ * @property {number} [confidence] - 检测结果的置信度
+ * @property {string} [message] - 检测结果的消息
  */
 export interface DetectionResult {
   success: boolean;
   corners?: { x: number; y: number }[];
   croppedImage?: ImageData;
+  imageData?: ImageData;
+  boundingBox?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  confidence?: number;
+  message?: string;
 }
 
 /**
