@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>身份证与二维码扫描演示</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+    
+    .scanner-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    
+    #video {
+      width: 100%;
+      max-width: 500px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      margin-bottom: 20px;
+    }
+    
+    .controls {
+      margin: 20px 0;
+    }
+    
+    button {
+      background-color: #4CAF50;
+      border: none;
+      color: white;
+      padding: 10px 20px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      margin: 4px 2px;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: background-color 0.3s;
+    }
+    
+    button:hover {
+      background-color: #45a049;
+    }
+    
+    .result-container {
+      margin-top: 20px;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      background-color: #f9f9f9;
+      min-height: 200px;
+      width: 100%;
+      max-width: 500px;
+    }
+    
+    .error {
+      color: red;
+    }
+    
+    h1, h3 {
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+  <h1>身份证与二维码扫描演示</h1>
+  
+  <div class="scanner-container">
+    <video id="video" autoplay playsinline></video>
+    
+    <div class="controls">
+      <button id="switchButton">切换扫描模式</button>
+    </div>
+    
+    <div id="result" class="result-container">
+      <p>等待扫描结果...</p>
+    </div>
+  </div>
+  
+  <script src="../dist/id-scanner.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      // 检查浏览器支持
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        document.getElementById('result').innerHTML = `
+          <div class="error">
+            <h3>浏览器不支持:</h3>
+            <p>您的浏览器不支持摄像头访问。请使用最新版的Chrome、Firefox或Safari浏览器。</p>
+          </div>
+        `;
+        return;
+      }
+      
+      try {
+        const demo = new IDScanner.IDScannerDemo('video', 'result', 'switchButton');
+        await demo.initialize();
+        
+        // 页面卸载时释放资源
+        window.addEventListener('beforeunload', () => {
+          demo.stop();
+        });
+      } catch (error) {
+        console.error('初始化失败:', error);
+        document.getElementById('result').innerHTML = `
+          <div class="error">
+            <h3>初始化错误:</h3>
+            <p>${error.message}</p>
+          </div>
+        `;
+      }
+    });
+  </script>
+</body>
+</html>
