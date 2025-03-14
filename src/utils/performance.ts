@@ -18,7 +18,7 @@ export function throttle<T extends (...args: any[]) => any>(
   let lastCall = 0;
   let timeoutId: number | null = null;
   
-  return function(...args: Parameters<T>) {
+  return function(this: any, ...args: Parameters<T>) {
     const now = Date.now();
     const remaining = delay - (now - lastCall);
     
@@ -52,7 +52,7 @@ export function debounce<T extends (...args: any[]) => any>(
 ): (...args: Parameters<T>) => void {
   let timeoutId: number | null = null;
   
-  return function(...args: Parameters<T>) {
+  return function(this: any, ...args: Parameters<T>) {
     if (timeoutId) {
       clearTimeout(timeoutId);
     }
@@ -110,7 +110,9 @@ export class LRUCache<K, V> {
     // 如果缓存已满，移除最老的项
     if (this.cache.size >= this.maxSize) {
       const oldestKey = this.cache.keys().next().value;
-      this.cache.delete(oldestKey);
+      if (oldestKey !== undefined) {
+        this.cache.delete(oldestKey);
+      }
     }
     
     // 添加新项
