@@ -43,7 +43,7 @@ async function main() {
     run('git add .');
 
     // 提交
-    const commitMessage = `v${version}: 修复类型错误和代码健壮性问题`;
+    const commitMessage = `v${version}: 完善类型定义，修复所有类型检查警告`;
     console.log(`\n📝 提交更改: "${commitMessage}"...`);
     run(`git commit -m "${commitMessage}"`);
 

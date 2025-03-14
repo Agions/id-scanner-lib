@@ -38,9 +38,9 @@ export async function processOCRInWorker(input: OCRProcessInput): Promise<OCRPro
   const { createWorker } = await import('tesseract.js');
   
   // 创建OCR Worker
-  const worker = createWorker(input.tessWorkerOptions || {
+  const worker = await createWorker(input.tessWorkerOptions || {
     logger: (m: any) => console.log(m)
-  });
+  }) as any; // 添加类型断言，避免TypeScript错误
   
   try {
     // 初始化OCR引擎
