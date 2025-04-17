@@ -1,0 +1,381 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>身份证防伪检测演示 - ID-Scanner-Lib</title>
+  <style>
+    body {
+      font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 20px;
+      line-height: 1.6;
+    }
+
+    h1 {
+      color: #333;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+    }
+
+    .section {
+      margin-bottom: 30px;
+    }
+
+    .card {
+      background: #f9f9f9;
+      border-radius: 6px;
+      padding: 20px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
+      margin-bottom: 20px;
+    }
+
+    .demo-area {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+
+    .input-area,
+    .result-area {
+      flex: 1;
+      min-width: 300px;
+    }
+
+    .video-container {
+      width: 100%;
+      position: relative;
+      margin-bottom: 20px;
+      background: #000;
+      border-radius: 4px;
+      overflow: hidden;
+    }
+
+    #video {
+      width: 100%;
+      display: block;
+    }
+
+    .controls {
+      margin: 15px 0;
+    }
+
+    .btn {
+      background: #3498db;
+      color: white;
+      border: none;
+      padding: 8px 15px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      margin-right: 5px;
+    }
+
+    .btn:hover {
+      background: #2980b9;
+    }
+
+    .file-input {
+      margin: 10px 0;
+    }
+
+    #result {
+      min-height: 200px;
+    }
+
+    .feature-list {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 10px;
+    }
+
+    .feature-item {
+      background: #e9f7fe;
+      padding: 5px 10px;
+      border-radius: 20px;
+      font-size: 13px;
+    }
+
+    .status {
+      font-weight: bold;
+      padding: 10px;
+      margin: 10px 0;
+      border-radius: 4px;
+    }
+
+    .status.authentic {
+      background: #d4edda;
+      color: #155724;
+    }
+
+    .status.fake {
+      background: #f8d7da;
+      color: #721c24;
+    }
+
+    .confidence-bar {
+      height: 10px;
+      background: #eee;
+      border-radius: 5px;
+      margin: 10px 0;
+      overflow: hidden;
+    }
+
+    .confidence-value {
+      height: 100%;
+      background: linear-gradient(90deg, #ff9500, #4CAF50);
+      border-radius: 5px;
+    }
+
+    .info-item {
+      display: flex;
+      margin-bottom: 5px;
+    }
+
+    .info-label {
+      font-weight: bold;
+      width: 120px;
+    }
+
+    .preview {
+      max-width: 100%;
+      max-height: 300px;
+      margin: 10px 0;
+    }
+
+    #warning {
+      display: none;
+      background: #ffecb3;
+      color: #7f6000;
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 4px;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>身份证防伪检测演示</h1>
+
+  <div class="section">
+    <p>该演示展示了 ID-Scanner-Lib 库的身份证防伪检测功能。你可以通过摄像头拍摄身份证或上传身份证图片进行检测。</p>
+    <p>注意：所有处理均在浏览器端完成，没有任何数据会上传到服务器。</p>
+  </div>
+
+  <div class="card demo-area">
+    <div class="input-area">
+      <h2>输入</h2>
+
+      <div class="video-container">
+        <video id="video" autoplay playsinline muted></video>
+      </div>
+
+      <div class="controls">
+        <button id="startCamera" class="btn">启动摄像头</button>
+        <button id="capture" class="btn" disabled>拍摄</button>
+        <button id="stop" class="btn" disabled>停止</button>
+      </div>
+
+      <div class="file-input">
+        <p>或者上传身份证图片：</p>
+        <input type="file" id="fileInput" accept="image/*">
+      </div>
+
+      <canvas id="canvas" style="display:none;"></canvas>
+      <img id="preview" class="preview" style="display:none;">
+    </div>
+
+    <div class="result-area">
+      <h2>检测结果</h2>
+      <div id="warning">
+        <strong>警告：</strong> 检测到可能为伪造证件，请谨慎使用此证件信息！
+      </div>
+      <div id="result" class="card">
+        <p>请通过拍照或上传图片开始检测...</p>
+      </div>
+    </div>
+  </div>
+
+  <script src="../dist/id-scanner.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function () {
+      // DOM元素
+      const videoElement = document.getElementById('video');
+      const canvasElement = document.getElementById('canvas');
+      const previewElement = document.getElementById('preview');
+      const resultElement = document.getElementById('result');
+      const warningElement = document.getElementById('warning');
+      const startButton = document.getElementById('startCamera');
+      const captureButton = document.getElementById('capture');
+      const stopButton = document.getElementById('stop');
+      const fileInput = document.getElementById('fileInput');
+
+      // 创建ID扫描器实例
+      const scanner = new IDScanner({
+        cameraOptions: {
+          facingMode: 'environment', // 使用后置摄像头
+          width: 1280,
+          height: 720
+        },
+        onAntiFakeDetected: handleAntiFakeResult,
+        onIDCardScanned: handleIDCardResult,
+        onError: handleError
+      });
+
+      let cameraActive = false;
+
+      // 初始化扫描器
+      async function initialize () {
+        try {
+          await scanner.initialize();
+          console.log('扫描器初始化成功');
+        } catch (error) {
+          console.error('扫描器初始化失败:', error);
+          resultElement.innerHTML = `<p style="color:red">初始化失败: ${error.message}</p>`;
+        }
+      }
+
+      // 启动摄像头
+      startButton.addEventListener('click', async function () {
+        if (cameraActive) return;
+
+        try {
+          await scanner.camera.initialize(videoElement);
+          cameraActive = true;
+          captureButton.disabled = false;
+          stopButton.disabled = false;
+          startButton.disabled = true;
+        } catch (error) {
+          console.error('摄像头启动失败:', error);
+          resultElement.innerHTML = `<p style="color:red">摄像头启动失败: ${error.message}</p>`;
+        }
+      });
+
+      // 拍摄身份证
+      captureButton.addEventListener('click', async function () {
+        if (!cameraActive) return;
+
+        try {
+          // 捕获当前帧
+          canvasElement.width = videoElement.videoWidth;
+          canvasElement.height = videoElement.videoHeight;
+          const ctx = canvasElement.getContext('2d');
+          ctx.drawImage(videoElement, 0, 0);
+
+          // 显示预览
+          previewElement.src = canvasElement.toDataURL('image/jpeg');
+          previewElement.style.display = 'block';
+
+          resultElement.innerHTML = '<p>正在分析图像...</p>';
+          warningElement.style.display = 'none';
+
+          // 进行防伪检测
+          const imageData = ctx.getImageData(0, 0, canvasElement.width, canvasElement.height);
+          await scanner.detectIDCardAntiFake(imageData);
+
+        } catch (error) {
+          console.error('处理失败:', error);
+          resultElement.innerHTML = `<p style="color:red">处理失败: ${error.message}</p>`;
+        }
+      });
+
+      // 上传文件处理
+      fileInput.addEventListener('change', async function (e) {
+        if (!e.target.files.length) return;
+
+        const file = e.target.files[0];
+        previewElement.src = URL.createObjectURL(file);
+        previewElement.style.display = 'block';
+
+        resultElement.innerHTML = '<p>正在分析图像...</p>';
+        warningElement.style.display = 'none';
+
+        try {
+          // 处理文件
+          await scanner.detectIDCardAntiFake(file);
+        } catch (error) {
+          console.error('处理失败:', error);
+          resultElement.innerHTML = `<p style="color:red">处理失败: ${error.message}</p>`;
+        }
+      });
+
+      // 停止摄像头
+      stopButton.addEventListener('click', function () {
+        if (!cameraActive) return;
+
+        scanner.camera.stop();
+        cameraActive = false;
+        captureButton.disabled = true;
+        stopButton.disabled = true;
+        startButton.disabled = false;
+      });
+
+      // 处理防伪检测结果
+      function handleAntiFakeResult (result) {
+        console.log('防伪检测结果:', result);
+
+        // 显示/隐藏警告
+        warningElement.style.display = result.isAuthentic ? 'none' : 'block';
+
+        // 构建结果HTML
+        let html = `
+          <div class="status ${result.isAuthentic ? 'authentic' : 'fake'}">
+            ${result.isAuthentic ? '✓ 身份证真实' : '⚠ 可疑身份证'}
+          </div>
+          
+          <div class="info-item">
+            <div class="info-label">置信度:</div>
+            <div>${(result.confidence * 100).toFixed(1)}%</div>
+          </div>
+          
+          <div class="confidence-bar">
+            <div class="confidence-value" style="width: ${result.confidence * 100}%"></div>
+          </div>
+          
+          <div class="info-item">
+            <div class="info-label">处理时间:</div>
+            <div>${result.processingTime ? result.processingTime.toFixed(2) + 'ms' : 'N/A'}</div>
+          </div>
+          
+          <div class="info-item">
+            <div class="info-label">检测到的特征:</div>
+            <div>${result.detectedFeatures.length || '无'}</div>
+          </div>
+        `;
+
+        // 如果有检测到特征，显示特征列表
+        if (result.detectedFeatures.length > 0) {
+          html += '<div class="feature-list">';
+          result.detectedFeatures.forEach(feature => {
+            html += `<div class="feature-item">${feature}</div>`;
+          });
+          html += '</div>';
+        }
+
+        html += `<p>${result.message}</p>`;
+
+        resultElement.innerHTML = html;
+      }
+
+      // 处理身份证识别结果
+      function handleIDCardResult (info) {
+        console.log('身份证识别结果:', info);
+        // 此处可以添加身份证信息显示代码
+      }
+
+      // 处理错误
+      function handleError (error) {
+        console.error('错误:', error);
+        resultElement.innerHTML = `<p style="color:red">错误: ${error.message}</p>`;
+      }
+
+      // 初始化
+      initialize();
+    });
+  </script>
+</body>
+
+</html>

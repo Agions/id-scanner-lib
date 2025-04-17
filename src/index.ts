@@ -2,7 +2,7 @@
  * @file ID扫描识别库主入口文件
  * @description 提供身份证识别与二维码、条形码扫描功能的纯前端TypeScript库
  * @module IDScannerLib
- * @version 1.0.0
+ * @version 1.3.0
  * @license MIT
  */
 
@@ -18,6 +18,12 @@ import {
 import type { QRScannerOptions } from "./scanner/qr-scanner"
 import type { BarcodeScannerOptions } from "./scanner/barcode-scanner"
 
+// 导入防伪检测器
+import {
+  AntiFakeDetector,
+  AntiFakeDetectionResult,
+} from "./id-recognition/anti-fake-detector"
+
 /**
  * IDScanner配置选项接口
  */
@@ -29,6 +35,7 @@ export interface IDScannerOptions {
   onBarcodeScanned?: (result: string) => void
   onIDCardScanned?: (info: IDCardInfo) => void
   onImageProcessed?: (processedImage: ImageData | File) => void
+  onAntiFakeDetected?: (result: AntiFakeDetectionResult) => void
   onError?: (error: Error) => void
 }
 
@@ -42,14 +49,16 @@ export class IDScanner {
   private camera: Camera
   private scanMode: "qr" | "barcode" | "idcard" = "qr"
   private videoElement: HTMLVideoElement | null = null
-
-  // 延迟加载的模块
+  private scanning = false
   private qrModule: any = null
   private ocrModule: any = null
-
-  // 模块加载状态
+  private scanTimer: number | null = null
   private isQRModuleLoaded: boolean = false
   private isOCRModuleLoaded: boolean = false
+
+  // 新增防伪检测器
+  private antiFakeDetector: AntiFakeDetector | null = null
+  private isAntiFakeModuleLoaded: boolean = false
 
   /**
    * 构造函数
@@ -61,7 +70,7 @@ export class IDScanner {
 
   /**
    * 初始化模块
-   * 根据需要初始化OCR引擎
+   * 根据需要初始化OCR引擎和防伪检测模块
    */
   async initialize(): Promise<void> {
     try {
@@ -80,9 +89,40 @@ export class IDScanner {
         await this.ocrModule.initialize()
       }
 
-      console.log("IDScanner initialized")
+      // 初始化防伪检测模块
+      if (!this.isAntiFakeModuleLoaded) {
+        this.antiFakeDetector = new AntiFakeDetector()
+        this.isAntiFakeModuleLoaded = true
+      }
+
+      console.log("IDScanner初始化完成")
     } catch (error) {
+      console.error("初始化失败:", error)
       this.handleError(error as Error)
+      throw error
+    }
+  }
+
+  /**
+   * 初始化OCR模块
+   */
+  private async initOCRModule(): Promise<void> {
+    if (this.isOCRModuleLoaded) return
+
+    try {
+      // 动态导入OCR模块
+      const OCRModule = await import("./ocr-module").then((m) => m.OCRModule)
+      this.ocrModule = new OCRModule({
+        cameraOptions: this.options.cameraOptions,
+        onIDCardScanned: this.options.onIDCardScanned,
+        onError: this.options.onError,
+      })
+      this.isOCRModuleLoaded = true
+
+      // 初始化OCR模块
+      await this.ocrModule.initialize()
+    } catch (error) {
+      console.error("OCR模块初始化失败:", error)
       throw error
     }
   }
@@ -194,7 +234,7 @@ export class IDScanner {
     if (this.options.onError) {
       this.options.onError(error)
     } else {
-      console.error("IDScanner error:", error)
+      console.error("IDScanner错误:", error)
     }
   }
 
@@ -215,6 +255,13 @@ export class IDScanner {
     if (this.isQRModuleLoaded && this.qrModule) {
       this.qrModule = null
       this.isQRModuleLoaded = false
+    }
+
+    // 释放防伪检测资源
+    if (this.antiFakeDetector) {
+      this.antiFakeDetector.dispose()
+      this.antiFakeDetector = null
+      this.isAntiFakeModuleLoaded = false
     }
   }
 
@@ -388,12 +435,11 @@ export class IDScanner {
   async processIDCardImage(
     imageSource: HTMLImageElement | HTMLCanvasElement | string | File
   ): Promise<IDCardInfo> {
-    try {
-      // 检查OCR模块是否已加载，若未加载则自动初始化
-      if (!this.isOCRModuleLoaded) {
-        await this.initialize()
-      }
+    if (!this.isOCRModuleLoaded) {
+      await this.initOCRModule()
+    }
 
+    try {
       // 处理不同类型的图片源
       let imageElement: HTMLImageElement
 
@@ -460,7 +506,26 @@ export class IDScanner {
       })
 
       // 使用OCR模块处理图像
-      return this.ocrModule.processIDCard(enhancedImageData)
+      const idInfo = await this.ocrModule.processIDCard(enhancedImageData)
+
+      // 进行防伪检测并将结果添加到身份证信息中
+      if (this.isAntiFakeModuleLoaded && this.antiFakeDetector) {
+        try {
+          const result = await this.antiFakeDetector.detect(enhancedImageData)
+          // 将防伪检测结果添加到身份证信息对象中
+          const extendedInfo = idInfo as any
+          extendedInfo.antiFakeResult = result
+
+          // 触发防伪检测回调
+          if (this.options.onAntiFakeDetected) {
+            this.options.onAntiFakeDetected(result)
+          }
+        } catch (error) {
+          console.warn("身份证防伪检测失败:", error)
+        }
+      }
+
+      return idInfo
     } catch (error) {
       this.handleError(error as Error)
       throw error
@@ -596,6 +661,89 @@ export class IDScanner {
       throw error
     }
   }
+
+  /**
+   * 身份证防伪检测
+   * @param imageSource 图片源
+   * @returns 防伪检测结果
+   */
+  async detectIDCardAntiFake(
+    imageSource: HTMLImageElement | HTMLCanvasElement | string | File
+  ): Promise<AntiFakeDetectionResult> {
+    if (!this.isAntiFakeModuleLoaded || !this.antiFakeDetector) {
+      await this.initialize()
+      if (!this.antiFakeDetector) {
+        throw new Error("防伪检测模块初始化失败")
+      }
+    }
+
+    try {
+      // 转换输入为ImageData
+      let imageData: ImageData
+
+      if (typeof imageSource === "string") {
+        // 处理URL或Base64
+        const img = new Image()
+        await new Promise<void>((resolve, reject) => {
+          img.onload = () => resolve()
+          img.onerror = () => reject(new Error("图像加载失败"))
+          img.src = imageSource
+        })
+
+        const canvas = document.createElement("canvas")
+        canvas.width = img.width
+        canvas.height = img.height
+        const ctx = canvas.getContext("2d")
+        if (!ctx) {
+          throw new Error("无法创建Canvas上下文")
+        }
+
+        ctx.drawImage(img, 0, 0)
+        imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      } else if (imageSource instanceof File) {
+        // 处理文件
+        imageData = await ImageProcessor.createImageDataFromFile(imageSource)
+      } else if (imageSource instanceof HTMLImageElement) {
+        // 处理Image元素
+        const canvas = document.createElement("canvas")
+        canvas.width = imageSource.width
+        canvas.height = imageSource.height
+        const ctx = canvas.getContext("2d")
+        if (!ctx) {
+          throw new Error("无法创建Canvas上下文")
+        }
+
+        ctx.drawImage(imageSource, 0, 0)
+        imageData = ctx.getImageData(0, 0, canvas.width, canvas.height)
+      } else {
+        // 处理Canvas元素
+        const ctx = (imageSource as HTMLCanvasElement).getContext("2d")
+        if (!ctx) {
+          throw new Error("无法获取Canvas上下文")
+        }
+
+        imageData = ctx.getImageData(
+          0,
+          0,
+          imageSource.width,
+          imageSource.height
+        )
+      }
+
+      // 执行防伪检测
+      const result = await this.antiFakeDetector.detect(imageData)
+
+      // 触发回调
+      if (this.options.onAntiFakeDetected) {
+        this.options.onAntiFakeDetected(result)
+      }
+
+      return result
+    } catch (error) {
+      this.handleError(error as Error)
+      throw error
+    }
+  }
 }
 
 // 导出工具类和类型
@@ -606,6 +754,9 @@ export {
   ImageCompressionOptions,
 } from "./utils/image-processing"
 export { IDCardInfo, DetectionResult } from "./utils/types"
+
+// 导出防伪检测相关类型和类
+export { AntiFakeDetector, AntiFakeDetectionResult }
 
 // 为了向后兼容，我们创建一个演示类
 export class IDScannerDemo {
@@ -759,7 +910,7 @@ export class IDScannerDemo {
   private handleIDCardResult(info: IDCardInfo): void {
     // 格式化显示身份证信息
     const infoHtml = Object.entries(info)
-      .filter(([key, value]) => value) // 过滤掉空值
+      .filter(([key, value]) => value && key !== "antiFakeResult") // 过滤掉空值和防伪结果
       .map(([key, value]) => {
         // 转换键名为中文显示
         const keyMap: { [key: string]: string } = {
@@ -778,9 +929,32 @@ export class IDScannerDemo {
       })
       .join("")
 
+    // 检查是否有防伪检测结果
+    let antiFakeHtml = ""
+    const anyInfo = info as any
+    if (anyInfo.antiFakeResult) {
+      const antiFakeResult = anyInfo.antiFakeResult
+      antiFakeHtml = `
+        <h3>防伪检测结果:</h3>
+        <div style="color: ${antiFakeResult.isAuthentic ? "green" : "red"}">
+          ${
+            antiFakeResult.isAuthentic
+              ? "✓ 身份证真实"
+              : "⚠ 警告：可能为伪造证件"
+          }
+        </div>
+        <div>置信度: ${(antiFakeResult.confidence * 100).toFixed(1)}%</div>
+        <div>检测到的特征: ${
+          antiFakeResult.detectedFeatures.join(", ") || "无"
+        }</div>
+        <div>${antiFakeResult.message}</div>
+      `
+    }
+
     this.updateResultDisplay(`
       <h3>身份证信息:</h3>
       ${infoHtml}
+      ${antiFakeHtml}
     `)
   }
 
