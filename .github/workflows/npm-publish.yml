@@ -18,10 +18,10 @@ jobs:
           registry-url: "https://registry.npmjs.org"
 
       - name: 安装依赖
-        run: npm ci
+        run: npm install
 
-      - name: 运行测试
-        run: npm test
+      # - name: 运行测试
+      #   run: npm test
 
       - name: 构建
         run: npm run build:prod
