@@ -31,7 +31,7 @@
 | 防伪检测   | 100-200ms    | >85%   | 多特征综合分析   |
 | 图像处理   | 20-100ms     | -      | 视处理操作而定   |
 
-## 最新版本 (v1.3.1)
+## 最新版本 (v1.3.2)
 
 - **图像处理引擎升级**：
   - 增强的图像锐化算法，提高低光照环境下的识别率
@@ -203,6 +203,7 @@ v1.3.1版本通过代码分割和Tree-shaking极大地优化了包体积：
 ## 最佳实践：按需引入
 
 ### 完整引入
+
 ```javascript
 // 引入完整功能
 import { IDScanner } from 'id-scanner-lib';
@@ -215,6 +216,7 @@ const scanner = new IDScanner({
 ```
 
 ### 轻量引入
+
 ```javascript
 // 只引入二维码相关功能
 import { ScannerModule } from 'id-scanner-lib/qr';
@@ -274,11 +276,11 @@ document.getElementById('fileInput').addEventListener('change', async (e) => {
       maxSizeMB: 1,
       maxWidthOrHeight: 1920
     });
-    
+  
     // 处理身份证图像
     const idInfo = await scanner.processIDCardImage(compressed);
     console.log('身份证信息:', idInfo);
-    
+  
     // 检查防伪检测结果
     if (idInfo.antiFakeResult) {
       console.log('防伪检测结果:', idInfo.antiFakeResult);
@@ -401,6 +403,7 @@ OCR引擎基于Tesseract.js进行了一系列优化：
 5. **隐形图案**：识别证件上的幽灵图像和隐形水印
 
 算法结合多种图像处理技术：
+
 - 特定光谱通道提取与分析
 - 边缘检测与微文字模式识别
 - 对比度与光照调整突出隐形特征
