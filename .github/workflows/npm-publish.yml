@@ -16,6 +16,8 @@ jobs:
         with:
           node-version: "16.x"
           registry-url: "https://registry.npmjs.org"
+          # 确保使用npm进行发布
+          scope: "@agions"
 
       - name: 安装依赖
         run: npm install --legacy-peer-deps
@@ -26,8 +28,15 @@ jobs:
       - name: 构建
         run: npm run build:prod
 
+      - name: 配置NPM认证
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+          npm whoami
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - name: 发布到NPM
-        run: npm publish
+        run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
