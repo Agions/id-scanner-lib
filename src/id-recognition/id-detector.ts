@@ -2,6 +2,7 @@
  * @file 身份证检测模块
  * @description 提供自动检测和定位图像中的身份证功能
  * @module IDCardDetector
+ * @version 1.3.2
  */
 
 import { Camera } from "../utils/camera"
@@ -53,6 +54,8 @@ export interface IDCardDetectorOptions {
  * ```
  */
 export class IDCardDetector implements Disposable {
+  // 身份证标准宽高比（近似黄金比例）
+  private static readonly ID_CARD_ASPECT_RATIO = 1.58 // 标准身份证宽高比
   private camera: Camera
   private detecting = false
   private detectTimer: number | null = null
@@ -270,28 +273,32 @@ export class IDCardDetector implements Disposable {
   private async detectIDCard(imageData: ImageData): Promise<DetectionResult> {
     // 1. 图像预处理
     const grayscale = ImageProcessor.toGrayscale(imageData)
-
-    // 2. 检测矩形和边缘（简化版实现）
-    // 注意：实际应用中应使用OpenCV.js或其他计算机视觉库进行更精确的检测
-    // 此处仅作为概念性实现，使用基本矩形检测逻辑
-
-    // 模拟检测过程，随机判断是否找到身份证
-    // 在实际应用中，此处应当实现实际的计算机视觉算法
+    
+    // 2. 使用Sobel边缘检测算法检测边缘
+    const edgeData = ImageProcessor.detectEdges(grayscale)
+    
+    // 3. 检测矩形和边缘
+    // 使用基于边缘的矩形检测
+    const rectangles = this.detectRectangles(edgeData)
+    
+    // 4. 评估检测结果 - 检查是否找到了合适的矩形
+    const idCardRect = this.findIdCardRectangle(rectangles, imageData.width, imageData.height)
+    
     const detectionResult: DetectionResult = {
-      success: Math.random() > 0.3, // 70%的概率成功检测到
-      message: "身份证检测完成",
+      success: idCardRect !== null,
+      message: idCardRect ? "身份证检测成功" : "未检测到身份证",
     }
 
-    if (detectionResult.success) {
-      // 模拟一个身份证矩形区域
+    if (detectionResult.success && idCardRect) {
+      // 使用检测到的身份证矩形区域
       const width = imageData.width
       const height = imageData.height
-
-      // 大致的身份证区域（按比例）
-      const rectWidth = Math.round(width * 0.7)
-      const rectHeight = Math.round(rectWidth * 0.618) // 身份证是黄金比例
-      const rectX = Math.round((width - rectWidth) / 2)
-      const rectY = Math.round((height - rectHeight) / 2)
+      
+      // 使用实际检测到的身份证区域
+      const rectWidth = idCardRect.width
+      const rectHeight = idCardRect.height
+      const rectX = idCardRect.x
+      const rectY = idCardRect.y
 
       // 添加四个角点
       detectionResult.corners = [
@@ -337,8 +344,8 @@ export class IDCardDetector implements Disposable {
         )
       }
 
-      // 设置置信度
-      detectionResult.confidence = 0.7 + Math.random() * 0.3
+      // 设置置信度 - 基于边缘强度和矩形形状评分
+      detectionResult.confidence = this.calculateConfidence(idCardRect, edgeData)
     }
 
     return detectionResult
@@ -359,5 +366,145 @@ export class IDCardDetector implements Disposable {
     this.stop()
     this.camera.release()
     this.resultCache.clear()
+  }
+  
+  /**
+   * 从边缘图像中检测矩形
+   * @param edgeData 边缘检测后的图像数据
+   * @returns 检测到的矩形数组
+   */
+  private detectRectangles(edgeData: ImageData): Array<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    confidence: number;
+  }> {
+    const width = edgeData.width;
+    const height = edgeData.height;
+    const minSize = Math.min(width, height) * 0.2; // 最小矩形尺寸
+    const rectangles = [];
+    
+    // 使用积分图像加速边缘密度计算
+    const integralImg = new Uint32Array(width * height);
+    
+    // 计算积分图像
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        const idx = y * width + x;
+        const pixel = (edgeData.data[idx * 4] > 128) ? 1 : 0; // 边缘为白色
+        
+        // 计算积分图
+        const above = y > 0 ? integralImg[(y - 1) * width + x] : 0;
+        const left = x > 0 ? integralImg[y * width + (x - 1)] : 0;
+        const diagonal = (x > 0 && y > 0) ? integralImg[(y - 1) * width + (x - 1)] : 0;
+        
+        integralImg[idx] = pixel + above + left - diagonal;
+      }
+    }
+    
+    // 滑动窗口检测矩形
+    for (let h = minSize; h < height * 0.9; h += Math.max(2, Math.floor(h * 0.05))) {
+      // 计算当前高度下,按照标准身份证比例的宽度
+      const w = Math.round(h * IDCardDetector.ID_CARD_ASPECT_RATIO);
+      if (w > width * 0.9) continue;
+      
+      for (let y = 0; y < height - h; y += Math.max(2, Math.floor(h * 0.1))) {
+        for (let x = 0; x < width - w; x += Math.max(2, Math.floor(w * 0.1))) {
+          // 计算矩形区域内的边缘密度
+          const edgeCount = this.calculateRectSum(integralImg, x, y, w, h, width);
+          const avgEdgeDensity = edgeCount / (w * h);
+          
+          // 计算矩形边界的边缘密度
+          const perimeterEdgeCount = this.calculateRectPerimeter(integralImg, x, y, w, h, width);
+          const perimeterLength = 2 * (w + h);
+          const perimeterDensity = perimeterEdgeCount / perimeterLength;
+          
+          // 矩形得分 - 边界边缘密度高且内部适中
+          const rectScore = perimeterDensity * 0.7 + (0.3 - Math.abs(0.15 - avgEdgeDensity)) * 0.3;
+          
+          if (rectScore > 0.4) { // 阈值可根据实际项目调整
+            rectangles.push({
+              x, 
+              y, 
+              width: w, 
+              height: h,
+              confidence: rectScore
+            });
+          }
+        }
+      }
+    }
+    
+    // 按得分排序
+    return rectangles.sort((a, b) => b.confidence - a.confidence);
+  }
+  
+  /**
+   * 使用积分图计算矩形区域内的总和
+   */
+  private calculateRectSum(integral: Uint32Array, x: number, y: number, w: number, h: number, stride: number): number {
+    const x2 = Math.min(x + w - 1, stride - 1);
+    const y2 = Math.min(y + h - 1, integral.length / stride - 1);
+    
+    const topLeft = (x > 0 && y > 0) ? integral[(y - 1) * stride + (x - 1)] : 0;
+    const topRight = y > 0 ? integral[(y - 1) * stride + x2] : 0;
+    const bottomLeft = x > 0 ? integral[y2 * stride + (x - 1)] : 0;
+    const bottomRight = integral[y2 * stride + x2];
+    
+    return bottomRight - topRight - bottomLeft + topLeft;
+  }
+  
+  /**
+   * 计算矩形周长上的边缘点数量
+   */
+  private calculateRectPerimeter(integral: Uint32Array, x: number, y: number, w: number, h: number, stride: number): number {
+    // 上边缘
+    const topEdgeSum = this.calculateRectSum(integral, x, y, w, 1, stride);
+    // 下边缘
+    const bottomEdgeSum = this.calculateRectSum(integral, x, y + h - 1, w, 1, stride);
+    // 左边缘
+    const leftEdgeSum = this.calculateRectSum(integral, x, y, 1, h, stride);
+    // 右边缘
+    const rightEdgeSum = this.calculateRectSum(integral, x + w - 1, y, 1, h, stride);
+    
+    return topEdgeSum + bottomEdgeSum + leftEdgeSum + rightEdgeSum;
+  }
+  
+  /**
+   * 从检测到的矩形中找出最可能是身份证的矩形
+   */
+  private findIdCardRectangle(rectangles: Array<{x: number; y: number; width: number; height: number; confidence: number}>, imageWidth: number, imageHeight: number): {x: number; y: number; width: number; height: number; confidence: number} | null {
+    if (rectangles.length === 0) return null;
+    
+    // 筛选符合身份证宽高比的矩形
+    const filteredRects = rectangles.filter(rect => {
+      const aspectRatio = rect.width / rect.height;
+      return Math.abs(aspectRatio - IDCardDetector.ID_CARD_ASPECT_RATIO) < 0.2; // 允许20%的误差
+    });
+    
+    if (filteredRects.length === 0) return null;
+    
+    // 返回得分最高的矩形
+    return filteredRects[0];
+  }
+  
+  /**
+   * 计算身份证检测的置信度
+   */
+  private calculateConfidence(rect: {x: number; y: number; width: number; height: number; confidence: number} | null, edgeData: ImageData): number {
+    if (!rect) return 0;
+    
+    // 基本得分来自矩形检测
+    let score = rect.confidence;
+    
+    // 额外因素：矩形大小相对于图像
+    const relativeSize = (rect.width * rect.height) / (edgeData.width * edgeData.height);
+    if (relativeSize > 0.1 && relativeSize < 0.7) {
+      score += 0.1; // 身份证通常占据图像的合理比例
+    }
+    
+    // 范围限制在0-1之间
+    return Math.min(Math.max(score, 0), 1);
   }
 }

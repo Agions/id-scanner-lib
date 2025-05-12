@@ -2,6 +2,7 @@
  * @file 图像处理工具类
  * @description 提供图像预处理功能，用于提高OCR识别率
  * @module ImageProcessor
+ * @version 1.3.2
  */
 
 import imageCompression from "browser-image-compression"
@@ -542,5 +543,368 @@ export class ImageProcessor {
 
     // 获取新的ImageData
     return ctx.getImageData(0, 0, newWidth, newHeight)
+  }
+  
+  /**
+   * 边缘检测算法，用于识别图像中的边缘
+   * 基于Sobel算子实现
+   * 
+   * @param imageData 原始图像数据，应已转为灰度图
+   * @param threshold 边缘阈值，默认为30
+   * @returns 检测到边缘的图像数据
+   */
+  static detectEdges(imageData: ImageData, threshold: number = 30): ImageData {
+    // 确保输入图像是灰度图
+    const grayscaleImage = this.toGrayscale(
+      new ImageData(
+        new Uint8ClampedArray(imageData.data),
+        imageData.width,
+        imageData.height
+      )
+    );
+    
+    const width = grayscaleImage.width;
+    const height = grayscaleImage.height;
+    const inputData = grayscaleImage.data;
+    const outputData = new Uint8ClampedArray(inputData.length);
+    
+    // Sobel算子 - 水平和垂直方向
+    const sobelX = [-1, 0, 1, -2, 0, 2, -1, 0, 1];
+    const sobelY = [-1, -2, -1, 0, 0, 0, 1, 2, 1];
+    
+    // 对每个像素应用Sobel算子
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        let gx = 0;
+        let gy = 0;
+        
+        // 应用卷积
+        for (let ky = -1; ky <= 1; ky++) {
+          for (let kx = -1; kx <= 1; kx++) {
+            const pixelPos = ((y + ky) * width + (x + kx)) * 4;
+            const pixelVal = inputData[pixelPos]; // 灰度值
+            
+            const kernelIdx = (ky + 1) * 3 + (kx + 1);
+            gx += pixelVal * sobelX[kernelIdx];
+            gy += pixelVal * sobelY[kernelIdx];
+          }
+        }
+        
+        // 计算梯度强度
+        let magnitude = Math.sqrt(gx * gx + gy * gy);
+        
+        // 应用阈值
+        magnitude = magnitude > threshold ? 255 : 0;
+        
+        // 设置输出像素
+        const pos = (y * width + x) * 4;
+        outputData[pos] = outputData[pos + 1] = outputData[pos + 2] = magnitude;
+        outputData[pos + 3] = 255; // 透明度保持完全不透明
+      }
+    }
+    
+    // 处理边缘像素
+    for (let i = 0; i < width * 4; i++) {
+      // 顶部和底部行
+      outputData[i] = 0;
+      outputData[(height - 1) * width * 4 + i] = 0;
+    }
+    
+    for (let i = 0; i < height; i++) {
+      // 左右两侧列
+      const leftPos = i * width * 4;
+      const rightPos = (i * width + width - 1) * 4;
+      
+      for (let j = 0; j < 4; j++) {
+        outputData[leftPos + j] = 0;
+        outputData[rightPos + j] = 0;
+      }
+    }
+    
+    return new ImageData(outputData, width, height);
+  }
+  
+  /**
+   * 卡尼-德里奇边缘检测
+   * 相比Sobel更精确的边缘检测算法
+   * 
+   * @param imageData 灰度图像数据
+   * @param lowThreshold 低阈值
+   * @param highThreshold 高阈值
+   * @returns 边缘检测结果
+   */
+  static cannyEdgeDetection(
+    imageData: ImageData, 
+    lowThreshold: number = 20, 
+    highThreshold: number = 50
+  ): ImageData {
+    const grayscaleImage = this.toGrayscale(
+      new ImageData(
+        new Uint8ClampedArray(imageData.data),
+        imageData.width,
+        imageData.height
+      )
+    );
+    
+    // 1. 高斯模糊
+    const blurredImage = this.gaussianBlur(grayscaleImage, 1.5);
+    
+    // 2. 使用Sobel算子计算梯度
+    const { gradientMagnitude, gradientDirection } = this.computeGradients(blurredImage);
+    
+    // 3. 非极大值抛弃
+    const nonMaxSuppressed = this.nonMaxSuppression(gradientMagnitude, gradientDirection, blurredImage.width, blurredImage.height);
+    
+    // 4. 双阈值处理
+    const thresholdResult = this.hysteresisThresholding(
+      nonMaxSuppressed, 
+      blurredImage.width, 
+      blurredImage.height, 
+      lowThreshold, 
+      highThreshold
+    );
+    
+    // 创建输出图像
+    const outputData = new Uint8ClampedArray(imageData.data.length);
+    
+    // 将结果转换为ImageData
+    for (let i = 0; i < thresholdResult.length; i++) {
+      const pos = i * 4;
+      const value = thresholdResult[i] ? 255 : 0;
+      outputData[pos] = outputData[pos + 1] = outputData[pos + 2] = value;
+      outputData[pos + 3] = 255;
+    }
+    
+    return new ImageData(outputData, blurredImage.width, blurredImage.height);
+  }
+  
+  /**
+   * 高斯模糊
+   */
+  private static gaussianBlur(imageData: ImageData, sigma: number = 1.5): ImageData {
+    const width = imageData.width;
+    const height = imageData.height;
+    const inputData = imageData.data;
+    const outputData = new Uint8ClampedArray(inputData.length);
+    
+    // 生成高斯核
+    const kernelSize = Math.max(3, Math.floor(sigma * 3) * 2 + 1);
+    const halfKernel = Math.floor(kernelSize / 2);
+    const kernel = this.generateGaussianKernel(kernelSize, sigma);
+    
+    // 应用高斯核
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        let sum = 0;
+        let weightSum = 0;
+        
+        for (let ky = -halfKernel; ky <= halfKernel; ky++) {
+          for (let kx = -halfKernel; kx <= halfKernel; kx++) {
+            const pixelY = Math.min(Math.max(y + ky, 0), height - 1);
+            const pixelX = Math.min(Math.max(x + kx, 0), width - 1);
+            const pixelPos = (pixelY * width + pixelX) * 4;
+            
+            const kernelY = ky + halfKernel;
+            const kernelX = kx + halfKernel;
+            const weight = kernel[kernelY * kernelSize + kernelX];
+            
+            sum += inputData[pixelPos] * weight;
+            weightSum += weight;
+          }
+        }
+        
+        const pos = (y * width + x) * 4;
+        const value = Math.round(sum / weightSum);
+        outputData[pos] = outputData[pos + 1] = outputData[pos + 2] = value;
+        outputData[pos + 3] = 255;
+      }
+    }
+    
+    return new ImageData(outputData, width, height);
+  }
+  
+  /**
+   * 生成高斯核
+   */
+  private static generateGaussianKernel(size: number, sigma: number): number[] {
+    const kernel = new Array(size * size);
+    const center = Math.floor(size / 2);
+    let sum = 0;
+    
+    for (let y = 0; y < size; y++) {
+      for (let x = 0; x < size; x++) {
+        const distance = Math.sqrt((x - center) ** 2 + (y - center) ** 2);
+        const value = Math.exp(-(distance ** 2) / (2 * sigma ** 2));
+        
+        kernel[y * size + x] = value;
+        sum += value;
+      }
+    }
+    
+    // 归一化
+    for (let i = 0; i < kernel.length; i++) {
+      kernel[i] /= sum;
+    }
+    
+    return kernel;
+  }
+  
+  /**
+   * 计算梯度强度和方向
+   */
+  private static computeGradients(imageData: ImageData): { 
+    gradientMagnitude: number[], 
+    gradientDirection: number[] 
+  } {
+    const width = imageData.width;
+    const height = imageData.height;
+    const inputData = imageData.data;
+    
+    const gradientMagnitude = new Array(width * height);
+    const gradientDirection = new Array(width * height);
+    
+    // Sobel算子
+    const sobelX = [-1, 0, 1, -2, 0, 2, -1, 0, 1];
+    const sobelY = [-1, -2, -1, 0, 0, 0, 1, 2, 1];
+    
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        let gx = 0;
+        let gy = 0;
+        
+        for (let ky = -1; ky <= 1; ky++) {
+          for (let kx = -1; kx <= 1; kx++) {
+            const pixelPos = ((y + ky) * width + (x + kx)) * 4;
+            const pixelVal = inputData[pixelPos];
+            
+            const kernelIdx = (ky + 1) * 3 + (kx + 1);
+            gx += pixelVal * sobelX[kernelIdx];
+            gy += pixelVal * sobelY[kernelIdx];
+          }
+        }
+        
+        const idx = y * width + x;
+        gradientMagnitude[idx] = Math.sqrt(gx * gx + gy * gy);
+        gradientDirection[idx] = Math.atan2(gy, gx);
+      }
+    }
+    
+    // 处理边界
+    for (let y = 0; y < height; y++) {
+      for (let x = 0; x < width; x++) {
+        if (y === 0 || y === height - 1 || x === 0 || x === width - 1) {
+          const idx = y * width + x;
+          gradientMagnitude[idx] = 0;
+          gradientDirection[idx] = 0;
+        }
+      }
+    }
+    
+    return { gradientMagnitude, gradientDirection };
+  }
+  
+  /**
+   * 非极大值抛弃
+   */
+  private static nonMaxSuppression(
+    gradientMagnitude: number[], 
+    gradientDirection: number[], 
+    width: number, 
+    height: number
+  ): number[] {
+    const result = new Array(width * height).fill(0);
+    
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        const idx = y * width + x;
+        const magnitude = gradientMagnitude[idx];
+        const direction = gradientDirection[idx];
+        
+        // 将方向转化为角度
+        const degrees = (direction * 180 / Math.PI + 180) % 180;
+        
+        // 获取相邻像素索引
+        let neighbor1Idx, neighbor2Idx;
+        
+        // 将方向量化为四个方向: 0°, 45°, 90°, 135°
+        if ((degrees >= 0 && degrees < 22.5) || (degrees >= 157.5 && degrees <= 180)) {
+          // 水平方向
+          neighbor1Idx = idx - 1;
+          neighbor2Idx = idx + 1;
+        } else if (degrees >= 22.5 && degrees < 67.5) {
+          // 45度方向
+          neighbor1Idx = (y - 1) * width + (x + 1);
+          neighbor2Idx = (y + 1) * width + (x - 1);
+        } else if (degrees >= 67.5 && degrees < 112.5) {
+          // 垂直方向
+          neighbor1Idx = (y - 1) * width + x;
+          neighbor2Idx = (y + 1) * width + x;
+        } else {
+          // 135度方向
+          neighbor1Idx = (y - 1) * width + (x - 1);
+          neighbor2Idx = (y + 1) * width + (x + 1);
+        }
+        
+        // 检查当前像素是否是最大值
+        if (magnitude >= gradientMagnitude[neighbor1Idx] && 
+            magnitude >= gradientMagnitude[neighbor2Idx]) {
+          result[idx] = magnitude;
+        }
+      }
+    }
+    
+    return result;
+  }
+  
+  /**
+   * 双阈值处理
+   */
+  private static hysteresisThresholding(
+    nonMaxSuppressed: number[], 
+    width: number, 
+    height: number, 
+    lowThreshold: number, 
+    highThreshold: number
+  ): boolean[] {
+    const result = new Array(width * height).fill(false);
+    const visited = new Array(width * height).fill(false);
+    const stack = [];
+    
+    // 标记强边缘点
+    for (let i = 0; i < nonMaxSuppressed.length; i++) {
+      if (nonMaxSuppressed[i] >= highThreshold) {
+        result[i] = true;
+        stack.push(i);
+        visited[i] = true;
+      }
+    }
+    
+    // 使用深度优先搜索连接弱边缘
+    const dx = [-1, 0, 1, -1, 1, -1, 0, 1];
+    const dy = [-1, -1, -1, 0, 0, 1, 1, 1];
+    
+    while (stack.length > 0) {
+      const currentIdx: number = stack.pop()!;
+      const currentX: number = currentIdx % width;
+      const currentY: number = Math.floor(currentIdx / width);
+      
+      // 检查88个相邻方向
+      for (let i = 0; i < 8; i++) {
+        const newX: number = currentX + dx[i];
+        const newY: number = currentY + dy[i];
+        
+        if (newX >= 0 && newX < width && newY >= 0 && newY < height) {
+          const newIdx: number = newY * width + newX;
+          
+          if (!visited[newIdx] && nonMaxSuppressed[newIdx] >= lowThreshold) {
+            result[newIdx] = true;
+            stack.push(newIdx);
+            visited[newIdx] = true;
+          }
+        }
+      }
+    }
+    
+    return result;
   }
 }

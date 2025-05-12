@@ -2,6 +2,7 @@
  * @file OCR处理模块
  * @description 提供身份证文字识别和信息提取功能
  * @module OCRProcessor
+ * @version 1.3.2
  */
 
 import { createWorker } from "tesseract.js"
@@ -231,67 +232,213 @@ export class OCRProcessor implements Disposable {
    * @param {string} text - OCR识别到的文本
    * @returns {IDCardInfo} 提取到的身份证信息对象
    */
+  /**
+   * 格式化日期字符串为标准格式 (YYYY-MM-DD)
+   * @param dateStr 原始日期字符串
+   * @returns 格式化后的日期字符串
+   */
+  private formatDateString(dateStr: string): string {
+    // 先尝试提取年月日
+    const dateMatch = dateStr.match(/(\d{4})[-\.\u5e74\s]*(\d{1,2})[-\.\u6708\s]*(\d{1,2})[日]*/);
+    if (dateMatch) {
+      const year = dateMatch[1];
+      const month = dateMatch[2].padStart(2, '0');
+      const day = dateMatch[3].padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+    
+    // 如果是纯数字格式如 20220101
+    if (/^\d{8}$/.test(dateStr)) {
+      const year = dateStr.substring(0, 4);
+      const month = dateStr.substring(4, 6);
+      const day = dateStr.substring(6, 8);
+      return `${year}-${month}-${day}`;
+    }
+    
+    // 如果无法格式化，返回原始字符串
+    return dateStr;
+  }
+
+  /**
+   * 验证身份证号是否符合规则
+   * @param idNumber 身份证号
+   * @returns 是否有效
+   */
+  private validateIDNumber(idNumber: string): boolean {
+    // 基本验证，校验位有效性和长度
+    if (!idNumber || idNumber.length !== 18) {
+      return false;
+    }
+    
+    // 检查格式，前17位必须为数字，最后一位可以是数字或'X'
+    const pattern = /^\d{17}[\dX]$/;
+    if (!pattern.test(idNumber)) {
+      return false;
+    }
+    
+    // 检查日期部分
+    const year = parseInt(idNumber.substr(6, 4));
+    const month = parseInt(idNumber.substr(10, 2));
+    const day = parseInt(idNumber.substr(12, 2));
+    
+    if (month < 1 || month > 12 || day < 1 || day > 31) {
+      return false;
+    }
+    
+    // 更详细的检查可以添加校验位的验证等逻辑...
+    
+    return true;
+  }
+  
   private parseIDCardText(text: string): IDCardInfo {
     const info: IDCardInfo = {}
+    
+    // 预处理文本，清除多余空白
+    const processedText = text.replace(/\s+/g, " ").trim()
 
-    // 拆分为行
-    const lines = text.split("\n").filter((line) => line.trim())
+    // 拆分为行，并过滤空行
+    const lines = processedText.split("\n").filter((line) => line.trim())
 
-    // 解析身份证号码（最容易识别的部分）
+    // 解析身份证号码 - 多种模式匹配
+    // 1. 普通18位身份证号模式
     const idNumberRegex = /(\d{17}[\dX])/
-    const idNumberMatch = text.match(idNumberRegex)
-    if (idNumberMatch) {
-      info.idNumber = idNumberMatch[1]
+    // 2. 带前缀的模式
+    const idNumberWithPrefixRegex = /公民身份号码[\s\:]*(\d{17}[\dX])/
+    
+    // 尝试所有模式
+    let idNumber = null
+    const basicMatch = processedText.match(idNumberRegex)
+    const prefixMatch = processedText.match(idNumberWithPrefixRegex)
+    
+    if (prefixMatch && prefixMatch[1]) {
+      idNumber = prefixMatch[1]  // 首选带前缀的匹配，因为最可靠
+    } else if (basicMatch && basicMatch[1]) {
+      idNumber = basicMatch[1]   // 其次是常规匹配
+    }
+    
+    if (idNumber) {
+      info.idNumber = idNumber
     }
 
-    // 解析姓名
-    for (const line of lines) {
-      if (
-        line.includes("姓名") ||
-        (line.length < 10 && line.length > 1 && !/\d/.test(line))
-      ) {
-        info.name = line.replace("姓名", "").trim()
-        break
+    // 解析姓名 - 使用多种策略
+    // 1. 直接匹配姓名标签近的内容
+    const nameWithLabelRegex = /姓名[\s\:]*([一-龥]{2,4})/
+    const nameMatch = processedText.match(nameWithLabelRegex)
+    
+    // 2. 分析行文本寻找姓名
+    if (nameMatch && nameMatch[1]) {
+      info.name = nameMatch[1].trim()
+    } else {
+      // 备用方案：查找短行且内容全是汉字
+      for (const line of lines) {
+        if (line.length >= 2 && line.length <= 5 && /^[一-龥]+$/.test(line) && !/性别|民族|住址|公民|签发|有效/.test(line)) {
+          info.name = line.trim()
+          break
+        }
       }
     }
 
-    // 解析性别和民族
-    const genderNationalityRegex = /(男|女).*(族)/
-    const genderMatch = text.match(genderNationalityRegex)
-    if (genderMatch) {
-      info.gender = genderMatch[1]
-      const nationalityText = genderMatch[0]
-      info.nationality = nationalityText
-        .substring(nationalityText.indexOf(genderMatch[1]) + 1)
-        .trim()
+    // 解析性别和民族 - 多种模式匹配
+    // 1. 标准格式匹配
+    const genderAndNationalityRegex = /性别[\s\:]*([男女])[\s ]*民族[\s\:]*([一-龥]+族)/
+    const genderNationalityMatch = processedText.match(genderAndNationalityRegex)
+    
+    // 2. 只匹配性别
+    const genderOnlyRegex = /性别[\s\:]*([男女])/
+    const genderOnlyMatch = processedText.match(genderOnlyRegex)
+    
+    // 3. 只匹配民族
+    const nationalityOnlyRegex = /民族[\s\:]*([一-龥]+族)/
+    const nationalityOnlyMatch = processedText.match(nationalityOnlyRegex)
+    
+    if (genderNationalityMatch) {
+      info.gender = genderNationalityMatch[1]
+      info.nationality = genderNationalityMatch[2]
+    } else {
+      // 分开获取
+      if (genderOnlyMatch) info.gender = genderOnlyMatch[1]
+      if (nationalityOnlyMatch) info.nationality = nationalityOnlyMatch[1]
     }
 
-    // 解析出生日期
-    const birthDateRegex = /(\d{4})年(\d{1,2})月(\d{1,2})日/
-    const birthDateMatch = text.match(birthDateRegex)
-    if (birthDateMatch) {
-      info.birthDate = `${birthDateMatch[1]}-${birthDateMatch[2]}-${birthDateMatch[3]}`
+    // 解析出生日期 - 支持多种格式
+    // 1. 标准格式：YYYY年MM月DD日
+    const birthDateRegex1 = /出生[\s\:]*(\d{4})年(\d{1,2})月(\d{1,2})[日号]/
+    // 2. 美式日期格式：YYYY-MM-DD或YYYY/MM/DD
+    const birthDateRegex2 = /出生[\s\:]*(\d{4})[-\/\.](\d{1,2})[-\/\.](\d{1,2})/
+    // 3. 带前缀的格式
+    const birthDateRegex3 = /出生日期[\s\:]*(\d{4})[-\/\.\u5e74](\d{1,2})[-\/\.\u6708](\d{1,2})[日号]?/
+    
+    let birthDateMatch = processedText.match(birthDateRegex1) || 
+                        processedText.match(birthDateRegex2) ||
+                        processedText.match(birthDateRegex3)
+                       
+    // 4. 从身份证号码中提取出生日期（如果上述方法失败）
+    if (!birthDateMatch && info.idNumber && info.idNumber.length === 18) {
+      const year = info.idNumber.substring(6, 10)
+      const month = info.idNumber.substring(10, 12)
+      const day = info.idNumber.substring(12, 14)
+      info.birthDate = `${year}-${month}-${day}`
+    } else if (birthDateMatch) {
+      // 确保月份和日期是两位数
+      const year = birthDateMatch[1]
+      const month = birthDateMatch[2].padStart(2, '0')
+      const day = birthDateMatch[3].padStart(2, '0')
+      info.birthDate = `${year}-${month}-${day}`
     }
 
-    // 解析地址
-    const addressRegex = /住址([\s\S]*?)公民身份号码/
-    const addressMatch = text.match(addressRegex)
-    if (addressMatch) {
-      info.address = addressMatch[1].replace(/\n/g, "").trim()
+    // 解析地址 - 改进的正则匹配
+    // 1. 常规模式
+    const addressRegex1 = /住址[\s\:]*([\s\S]*?)(?=公民身份|出生|性别|签发)/
+    // 2. 更宽松的模式
+    const addressRegex2 = /住址[\s\:]*([一-龥a-zA-Z0-9\s\.\-]+)/
+    
+    const addressMatch = processedText.match(addressRegex1) || processedText.match(addressRegex2)
+    
+    if (addressMatch && addressMatch[1]) {
+      // 清理地址中的常见错误和多余空格
+      info.address = addressMatch[1].replace(/\s+/g, "").replace(/\n/g, "").trim()
+      
+      // 限制地址长度并判断地址合理性
+      if (info.address.length > 70) {
+        info.address = info.address.substring(0, 70)
+      }
+      
+      // 确保地址是合理的（不仅仅包含符号或数字）
+      if (!/[一-龥]/.test(info.address)) {
+        info.address = ""; // 如果没有中文字符，可能不是有效地址
+      }
     }
 
     // 解析签发机关
-    const authorityRegex = /签发机关([\s\S]*?)有效期/
-    const authorityMatch = text.match(authorityRegex)
-    if (authorityMatch) {
-      info.issuingAuthority = authorityMatch[1].replace(/\n/g, "").trim()
+    const authorityRegex1 = /签发机关[\s\:]*([\s\S]*?)(?=有效|公民|出生|\d{8}|$)/
+    const authorityRegex2 = /签发机关[\s\:]*([一-龥\s]+)/
+    
+    const authorityMatch = processedText.match(authorityRegex1) || processedText.match(authorityRegex2)
+    
+    if (authorityMatch && authorityMatch[1]) {
+      info.issuingAuthority = authorityMatch[1].replace(/\s+/g, "").replace(/\n/g, "").trim()
     }
 
-    // 解析有效期限
-    const validPeriodRegex = /有效期限([\s\S]*?)(-|至)/
-    const validPeriodMatch = text.match(validPeriodRegex)
+    // 解析有效期限 - 支持多种格式
+    // 1. 常规格式：YYYY.MM.DD-YYYY.MM.DD
+    const validPeriodRegex1 = /有效期限[\s\:]*(\d{4}[-\.\u5e74\s]\d{1,2}[-\.\u6708\s]\d{1,2}[日\s]*)[-\s]*(至|-)[-\s]*(\d{4}[-\.\u5e74\s]\d{1,2}[-\.\u6708\s]\d{1,2}[日]*|[永久长期]*)/
+    // 2. 简化格式：YYYYMMDD-YYYYMMDD
+    const validPeriodRegex2 = /有效期限[\s\:]*(\d{8})[-\s]*(至|-)[-\s]*(\d{8}|[永久长期]*)/
+    
+    const validPeriodMatch = processedText.match(validPeriodRegex1) || processedText.match(validPeriodRegex2)
+    
     if (validPeriodMatch) {
-      info.validPeriod = validPeriodMatch[0].replace("有效期限", "").trim()
+      // 格式化为统一的有效期限形式
+      if (validPeriodMatch[1] && validPeriodMatch[3]) {
+        const startDate = this.formatDateString(validPeriodMatch[1])
+        const endDate = /\d/.test(validPeriodMatch[3]) ? 
+                      this.formatDateString(validPeriodMatch[3]) : 
+                      '长期有效'
+        
+        info.validPeriod = `${startDate}-${endDate}`
+      } else {
+        info.validPeriod = validPeriodMatch[0].replace('有效期限', '').trim()
+      }
     }
 
     return info
