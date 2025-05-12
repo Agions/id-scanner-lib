@@ -1,6 +1,6 @@
 {
   "name": "id-scanner-lib",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "type": "module",
   "main": "dist/id-scanner.js",
   "module": "dist/id-scanner-core.esm.js",
