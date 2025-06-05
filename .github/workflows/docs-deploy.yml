@@ -1,0 +1,52 @@
+name: 部署文档站点
+
+on:
+  # 在main分支推送时触发
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'  # 仅当docs目录下的文件有变更时触发
+  
+  # 允许手动触发工作流
+  workflow_dispatch:
+
+jobs:
+  build-and-deploy:
+    name: 构建与部署文档
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      
+      - name: 设置Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          registry-url: 'https://registry.npmjs.org/'
+          cache: 'npm'
+      
+      - name: 安装依赖
+        run: |
+          cd docs
+          npm ci
+      
+      - name: 构建文档
+        run: |
+          cd docs
+          npm run build
+      
+      - name: 部署到GitHub Pages
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: docs/.vitepress/dist  # VitePress构建输出目录
+          branch: gh-pages  # 部署到gh-pages分支
+          clean: true  # 部署前清理目标分支
+          commit-message: "docs: 自动部署文档站点 [skip ci]"
+          
+      - name: 部署状态通知
+        if: success()
+        run: |
+          echo "✅ 文档站点已成功部署到 https://agions.github.io/id-scanner-lib/"
