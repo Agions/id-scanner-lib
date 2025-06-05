@@ -6,6 +6,7 @@
  */
 
 import imageCompression from "browser-image-compression"
+import { Point, Rect, ImageProcessingOptions } from './types';
 
 /**
  * 图像处理器配置选项
@@ -481,68 +482,86 @@ export class ImageProcessor {
   }
 
   /**
-   * 调整图像大小
-   *
-   * @param imageData 原始图像数据
+   * 将图像调整到指定大小
+   * @param image 输入图像
    * @param maxWidth 最大宽度
    * @param maxHeight 最大高度
-   * @param maintainAspectRatio 是否保持宽高比
-   * @returns ImageData 调整大小后的图像数据
+   * @param keepAspectRatio 是否保持宽高比
+   * @returns 调整后的图像
    */
-  static resizeImage(
-    imageData: ImageData,
+  public static resizeImage(
+    image: ImageData | HTMLImageElement | HTMLCanvasElement,
     maxWidth: number,
     maxHeight: number,
-    maintainAspectRatio: boolean = true
+    keepAspectRatio: boolean = true
   ): ImageData {
-    const { width, height } = imageData
-
-    // 如果图像已经小于指定大小，则不需要调整
-    if (width <= maxWidth && height <= maxHeight) {
-      return imageData
-    }
-
-    let newWidth = maxWidth
-    let newHeight = maxHeight
-
-    // 计算新的尺寸，保持宽高比
-    if (maintainAspectRatio) {
-      const ratio = Math.min(maxWidth / width, maxHeight / height)
-      newWidth = Math.floor(width * ratio)
-      newHeight = Math.floor(height * ratio)
-    }
-
-    // 创建用于调整大小的Canvas
-    const canvas = document.createElement("canvas")
-    canvas.width = newWidth
-    canvas.height = newHeight
-
-    const ctx = canvas.getContext("2d")
+    // 创建canvas元素
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    
     if (!ctx) {
-      throw new Error("无法创建2D上下文")
+      throw new Error('无法创建Canvas上下文');
     }
-
-    // 创建临时Canvas绘制原始ImageData
-    const tempCanvas = document.createElement("canvas")
-    tempCanvas.width = width
-    tempCanvas.height = height
-
-    const tempCtx = tempCanvas.getContext("2d")
+    
+    // 获取图像尺寸
+    let width: number;
+    let height: number;
+    
+    if (image instanceof ImageData) {
+      width = image.width;
+      height = image.height;
+    } else {
+      width = image.width;
+      height = image.height;
+    }
+    
+    // 计算调整后的尺寸
+    let newWidth = width;
+    let newHeight = height;
+    
+    if (keepAspectRatio) {
+      if (width > height) {
+        if (width > maxWidth) {
+          newHeight = Math.round(height * (maxWidth / width));
+          newWidth = maxWidth;
+        }
+      } else {
+        if (height > maxHeight) {
+          newWidth = Math.round(width * (maxHeight / height));
+          newHeight = maxHeight;
+        }
+      }
+    } else {
+      newWidth = Math.min(width, maxWidth);
+      newHeight = Math.min(height, maxHeight);
+    }
+    
+    // 设置canvas尺寸
+    canvas.width = newWidth;
+    canvas.height = newHeight;
+    
+    // 绘制调整后的图像
+    if (image instanceof ImageData) {
+      // 创建临时canvas存储ImageData
+      const tempCanvas = document.createElement('canvas');
+      const tempCtx = tempCanvas.getContext('2d');
+      
     if (!tempCtx) {
-      throw new Error("无法创建临时2D上下文")
+        throw new Error('无法创建临时Canvas上下文');
     }
 
-    tempCtx.putImageData(imageData, 0, 0)
+      tempCanvas.width = image.width;
+      tempCanvas.height = image.height;
+      tempCtx.putImageData(image, 0, 0);
+      
+      // 绘制调整后的图像
+      ctx.drawImage(tempCanvas, 0, 0, width, height, 0, 0, newWidth, newHeight);
+    } else {
+      ctx.drawImage(image, 0, 0, width, height, 0, 0, newWidth, newHeight);
+    }
 
-    // 使用缩放平滑算法
-    ctx.imageSmoothingEnabled = true
-    ctx.imageSmoothingQuality = "high"
-
-    // 绘制调整大小的图像
-    ctx.drawImage(tempCanvas, 0, 0, width, height, 0, 0, newWidth, newHeight)
-
-    // 获取新的ImageData
-    return ctx.getImageData(0, 0, newWidth, newHeight)
+    // 返回调整后的ImageData
+    return ctx.getImageData(0, 0, newWidth, newHeight);
   }
   
   /**

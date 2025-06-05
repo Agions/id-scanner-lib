@@ -1,0 +1,616 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>身份证人脸识别与活体检测演示</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 900px;
+      margin: 0 auto;
+      padding: 20px;
+    }
+
+    .scanner-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    .video-container {
+      display: flex;
+      justify-content: space-between;
+      width: 100%;
+      margin-bottom: 20px;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    #video, #idCardPreview {
+      width: 48%;
+      min-width: 300px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      margin-bottom: 10px;
+    }
+
+    .controls {
+      margin: 20px 0;
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    button {
+      background-color: #4CAF50;
+      border: none;
+      color: white;
+      padding: 10px 20px;
+      text-align: center;
+      text-decoration: none;
+      display: inline-block;
+      font-size: 16px;
+      margin: 0 2px;
+      cursor: pointer;
+      border-radius: 4px;
+      transition: background-color 0.3s;
+    }
+
+    button:hover {
+      background-color: #45a049;
+    }
+
+    button.secondary {
+      background-color: #2196F3;
+    }
+
+    button.secondary:hover {
+      background-color: #0b7dda;
+    }
+
+    button.danger {
+      background-color: #f44336;
+    }
+
+    button.danger:hover {
+      background-color: #d32f2f;
+    }
+
+    .result-container {
+      margin-top: 20px;
+      padding: 15px;
+      border: 1px solid #ddd;
+      border-radius: 5px;
+      background-color: #f9f9f9;
+      min-height: 200px;
+      width: 100%;
+      max-width: 800px;
+    }
+
+    .face-comparison-result {
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      margin: 20px 0;
+      flex-wrap: wrap;
+    }
+
+    .comparison-image {
+      width: 200px;
+      height: 200px;
+      object-fit: cover;
+      border-radius: 8px;
+      border: 3px solid #ccc;
+      margin: 10px;
+    }
+
+    .score-display {
+      text-align: center;
+      padding: 10px;
+      background-color: #e9e9e9;
+      border-radius: 20px;
+      font-size: 18px;
+      font-weight: bold;
+      margin: 10px 0;
+    }
+
+    .score-display.match {
+      background-color: #4CAF50;
+      color: white;
+    }
+
+    .score-display.no-match {
+      background-color: #f44336;
+      color: white;
+    }
+
+    .error {
+      color: red;
+    }
+
+    h1, h2, h3 {
+      color: #333;
+    }
+
+    .file-upload {
+      display: inline-block;
+      position: relative;
+      overflow: hidden;
+      background-color: #2196F3;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 4px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .file-upload:hover {
+      background-color: #0b7dda;
+    }
+
+    .file-upload input {
+      position: absolute;
+      font-size: 100px;
+      opacity: 0;
+      right: 0;
+      top: 0;
+      cursor: pointer;
+    }
+
+    .instructions {
+      background-color: #fffde7;
+      padding: 15px;
+      border-radius: 8px;
+      margin: 20px 0;
+      border-left: 5px solid #ffd600;
+    }
+
+    .progress-indicator {
+      width: 100%;
+      height: 4px;
+      background-color: #e0e0e0;
+      position: relative;
+      margin: 10px 0;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+
+    .progress-bar {
+      height: 100%;
+      background-color: #4CAF50;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    .tabs {
+      display: flex;
+      margin-bottom: 20px;
+      border-bottom: 1px solid #ccc;
+      width: 100%;
+    }
+
+    .tab {
+      padding: 10px 20px;
+      cursor: pointer;
+      background-color: #f1f1f1;
+      border: 1px solid #ccc;
+      border-bottom: none;
+      border-radius: 5px 5px 0 0;
+      margin-right: 5px;
+    }
+
+    .tab.active {
+      background-color: white;
+      border-bottom: 1px solid white;
+      margin-bottom: -1px;
+      color: #4CAF50;
+      font-weight: bold;
+    }
+
+    .tab-content {
+      display: none;
+    }
+
+    .tab-content.active {
+      display: block;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>身份证人脸识别与活体检测演示</h1>
+
+  <div class="tabs">
+    <div class="tab active" data-tab="face-verification">人脸验证</div>
+    <div class="tab" data-tab="liveness-detection">活体检测</div>
+  </div>
+
+  <div class="tab-content active" id="face-verification-content">
+    <div class="instructions">
+      <h3>使用说明</h3>
+      <p>1. 上传身份证照片或其他参考照片</p>
+      <p>2. 开启摄像头进行人脸比对</p>
+      <p>3. 系统将自动比较两张照片的相似度，并显示结果</p>
+    </div>
+
+    <div class="scanner-container">
+      <div class="video-container">
+        <video id="video" autoplay playsinline></video>
+        <canvas id="idCardPreview" width="300" height="225"></canvas>
+      </div>
+
+      <div class="controls">
+        <button id="startButton" class="secondary">开启摄像头</button>
+        <button id="compareButton" disabled>开始人脸比对</button>
+        <button id="stopButton" class="danger" disabled>停止</button>
+        <label class="file-upload">
+          上传参考照片
+          <input type="file" id="referenceImageInput" accept="image/*">
+        </label>
+      </div>
+
+      <div id="result" class="result-container">
+        <h3>比对结果</h3>
+        <div class="progress-indicator">
+          <div class="progress-bar" id="progressBar"></div>
+        </div>
+        <div class="face-comparison-result">
+          <div>
+            <h3>参考照片</h3>
+            <img id="referenceImage" class="comparison-image" src="data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%23CCCCCC'/%3E%3Ctext x='50%25' y='50%25' font-size='18' text-anchor='middle' alignment-baseline='middle' font-family='Arial, sans-serif' fill='%23555555'%3E无照片%3C/text%3E%3C/svg%3E" alt="参考照片">
+          </div>
+          <div>
+            <h3>当前照片</h3>
+            <img id="capturedImage" class="comparison-image" src="data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='200' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%23CCCCCC'/%3E%3Ctext x='50%25' y='50%25' font-size='18' text-anchor='middle' alignment-baseline='middle' font-family='Arial, sans-serif' fill='%23555555'%3E无照片%3C/text%3E%3C/svg%3E" alt="当前照片">
+          </div>
+        </div>
+        <div id="scoreDisplay" class="score-display">等待比对...</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="tab-content" id="liveness-detection-content">
+    <div class="instructions">
+      <h3>活体检测使用说明</h3>
+      <p>1. 开启摄像头</p>
+      <p>2. 按照提示完成动作检测（眨眼、摇头等）</p>
+      <p>3. 系统将检测真人操作，防止照片欺骗</p>
+    </div>
+
+    <div class="scanner-container">
+      <video id="livenessVideo" autoplay playsinline></video>
+
+      <div class="controls">
+        <button id="startLivenessButton" class="secondary">开启活体检测</button>
+        <button id="stopLivenessButton" class="danger" disabled>停止检测</button>
+      </div>
+
+      <div id="livenessResult" class="result-container">
+        <h3>检测指引</h3>
+        <p id="livenessInstruction">请点击"开启活体检测"按钮开始</p>
+        <div class="progress-indicator">
+          <div class="progress-bar" id="livenessProgressBar"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 确保脚本加载完成后再执行 -->
+  <script src="../dist/id-scanner.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // 初始化选项卡
+      initTabs();
+
+      // 检查IDScanner是否加载
+      if (typeof IDScanner === 'undefined') {
+        showError('IDScanner 库未能正确加载，请检查网络连接并刷新页面。');
+        return;
+      }
+
+      // 检查浏览器支持
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        showError('您的浏览器不支持摄像头访问。请使用最新版的Chrome、Firefox或Safari浏览器。');
+        return;
+      }
+
+      // 初始化应用
+      initFaceVerification();
+      initLivenessDetection();
+    });
+
+    function initTabs() {
+      const tabs = document.querySelectorAll('.tab');
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          // 移除所有活动状态
+          document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+          document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+          
+          // 添加当前活动状态
+          tab.classList.add('active');
+          const contentId = `${tab.dataset.tab}-content`;
+          document.getElementById(contentId).classList.add('active');
+        });
+      });
+    }
+
+    function showError(message) {
+      document.getElementById('result').innerHTML = `
+        <div class="error">
+          <h3>错误:</h3>
+          <p>${message}</p>
+        </div>
+      `;
+      console.error(message);
+    }
+
+    function initFaceVerification() {
+      // DOM 元素
+      const video = document.getElementById('video');
+      const idCardPreview = document.getElementById('idCardPreview');
+      const startButton = document.getElementById('startButton');
+      const compareButton = document.getElementById('compareButton');
+      const stopButton = document.getElementById('stopButton');
+      const referenceImageInput = document.getElementById('referenceImageInput');
+      const referenceImage = document.getElementById('referenceImage');
+      const capturedImage = document.getElementById('capturedImage');
+      const scoreDisplay = document.getElementById('scoreDisplay');
+      const progressBar = document.getElementById('progressBar');
+
+      // 创建IDScanner实例
+      const scanner = new IDScanner({
+        onFaceDetected: (faces) => {
+          if (faces.length > 0) {
+            compareButton.disabled = false;
+          }
+        },
+        onFaceCompared: (result) => {
+          // 更新UI显示比对结果
+          capturedImage.src = result.capturedImageData;
+          scoreDisplay.textContent = `相似度: ${Math.round(result.similarity * 100)}%`;
+          
+          if (result.similarity >= 0.7) {
+            scoreDisplay.classList.add('match');
+            scoreDisplay.classList.remove('no-match');
+          } else {
+            scoreDisplay.classList.add('no-match');
+            scoreDisplay.classList.remove('match');
+          }
+          
+          progressBar.style.width = '100%';
+        },
+        onError: (error) => {
+          showError(`操作失败: ${error.message}`);
+        }
+      });
+
+      // 处理参考图像上传
+      referenceImageInput.addEventListener('change', async (event) => {
+        if (event.target.files && event.target.files[0]) {
+          const file = event.target.files[0];
+          
+          try {
+            progressBar.style.width = '30%';
+            
+            // 处理上传的图像
+            const fileReader = new FileReader();
+            fileReader.onload = async (e) => {
+              referenceImage.src = e.target.result;
+              
+              // 检测上传图像中的人脸
+              const img = new Image();
+              img.onload = async () => {
+                try {
+                  const ctx = idCardPreview.getContext('2d');
+                  ctx.clearRect(0, 0, idCardPreview.width, idCardPreview.height);
+                  ctx.drawImage(img, 0, 0, idCardPreview.width, idCardPreview.height);
+                  
+                  progressBar.style.width = '60%';
+                  
+                  // 检测人脸
+                  const faces = await scanner.detectFaces(idCardPreview);
+                  if (faces.length > 0) {
+                    progressBar.style.width = '100%';
+                    console.log('检测到参考照片中的人脸', faces);
+                    compareButton.disabled = !video.srcObject;
+                  } else {
+                    showError('未在参考照片中检测到人脸');
+                    progressBar.style.width = '0%';
+                  }
+                } catch (error) {
+                  showError(`处理参考照片失败: ${error.message}`);
+                  progressBar.style.width = '0%';
+                }
+              };
+              img.src = e.target.result;
+            };
+            fileReader.readAsDataURL(file);
+          } catch (error) {
+            showError(`读取图像文件失败: ${error.message}`);
+            progressBar.style.width = '0%';
+          }
+        }
+      });
+
+      // 启动摄像头
+      startButton.addEventListener('click', async () => {
+        try {
+          progressBar.style.width = '30%';
+          
+          await scanner.initialize();
+          await scanner.startFaceRecognition(video);
+          
+          startButton.disabled = true;
+          stopButton.disabled = false;
+          compareButton.disabled = !referenceImage.src.includes('data:image');
+          
+          progressBar.style.width = '100%';
+        } catch (error) {
+          showError(`启动摄像头失败: ${error.message}`);
+          progressBar.style.width = '0%';
+        }
+      });
+
+      // 停止摄像头
+      stopButton.addEventListener('click', () => {
+        scanner.stop();
+        startButton.disabled = false;
+        stopButton.disabled = true;
+        compareButton.disabled = true;
+      });
+
+      // 进行人脸比对
+      compareButton.addEventListener('click', async () => {
+        try {
+          progressBar.style.width = '50%';
+          
+          // 捕获当前视频帧
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(video, 0, 0);
+          
+          // 比较人脸
+          const result = await scanner.compareFaces(referenceImage.src, canvas);
+          progressBar.style.width = '100%';
+        } catch (error) {
+          showError(`人脸比对失败: ${error.message}`);
+          progressBar.style.width = '0%';
+        }
+      });
+    }
+
+    function initLivenessDetection() {
+      // DOM 元素
+      const video = document.getElementById('livenessVideo');
+      const startButton = document.getElementById('startLivenessButton');
+      const stopButton = document.getElementById('stopLivenessButton');
+      const instructionElement = document.getElementById('livenessInstruction');
+      const progressBar = document.getElementById('livenessProgressBar');
+
+      // 创建IDScanner实例
+      const scanner = new IDScanner({
+        onLivenessDetected: (result) => {
+          // 更新UI显示活体检测结果
+          if (result.isLive) {
+            instructionElement.innerHTML = `<strong style="color: green">检测通过!</strong> 活体概率: ${Math.round(result.confidence * 100)}%`;
+          } else {
+            instructionElement.innerHTML = `<strong style="color: red">检测失败</strong> - ${result.failReason || '未检测到真人操作'}`;
+          }
+          progressBar.style.width = '100%';
+        },
+        onError: (error) => {
+          showError(`活体检测失败: ${error.message}`);
+          progressBar.style.width = '0%';
+        }
+      });
+
+      // 活体检测指令和状态
+      let detectionActive = false;
+      const instructions = [
+        "请看向摄像头正面",
+        "请缓慢向左转头",
+        "请缓慢向右转头",
+        "请眨眨眼睛",
+        "请张嘴，然后闭上"
+      ];
+      let currentInstructionIndex = 0;
+
+      // 启动活体检测
+      startButton.addEventListener('click', async () => {
+        try {
+          progressBar.style.width = '30%';
+          
+          await scanner.initialize();
+          await scanner.startFaceRecognition(video);
+          
+          startButton.disabled = true;
+          stopButton.disabled = false;
+          detectionActive = true;
+          
+          progressBar.style.width = '60%';
+          
+          // 启动活体检测指令
+          currentInstructionIndex = 0;
+          updateInstruction();
+          startDetectionSequence();
+        } catch (error) {
+          showError(`启动活体检测失败: ${error.message}`);
+          progressBar.style.width = '0%';
+        }
+      });
+
+      // 更新指令
+      function updateInstruction() {
+        if (currentInstructionIndex < instructions.length) {
+          instructionElement.textContent = `请${instructions[currentInstructionIndex]}`;
+          progressBar.style.width = `${(currentInstructionIndex / instructions.length) * 100}%`;
+        } else {
+          // 完成所有指令，进行活体检测
+          performLivenessCheck();
+        }
+      }
+
+      // 启动检测序列
+      function startDetectionSequence() {
+        if (!detectionActive) return;
+        
+        const instructionInterval = setInterval(() => {
+          if (!detectionActive) {
+            clearInterval(instructionInterval);
+            return;
+          }
+          
+          currentInstructionIndex++;
+          
+          if (currentInstructionIndex < instructions.length) {
+            updateInstruction();
+          } else {
+            clearInterval(instructionInterval);
+            performLivenessCheck();
+          }
+        }, 3000); // 每3秒更新一次指令
+      }
+
+      // 执行活体检测
+      async function performLivenessCheck() {
+        try {
+          instructionElement.textContent = "正在进行活体检测分析...";
+          progressBar.style.width = '80%';
+          
+          // 捕获当前视频帧
+          const canvas = document.createElement('canvas');
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          const ctx = canvas.getContext('2d');
+          ctx.drawImage(video, 0, 0);
+          
+          // 进行活体检测
+          await scanner.detectLiveness(canvas, {
+            requireBlinking: true,
+            requireHeadMovement: true
+          });
+        } catch (error) {
+          showError(`活体检测过程失败: ${error.message}`);
+          progressBar.style.width = '0%';
+        }
+      }
+
+      // 停止活体检测
+      stopButton.addEventListener('click', () => {
+        scanner.stop();
+        startButton.disabled = false;
+        stopButton.disabled = true;
+        detectionActive = false;
+        instructionElement.textContent = "检测已停止";
+      });
+    }
+  </script>
+</body>
+
+</html> 

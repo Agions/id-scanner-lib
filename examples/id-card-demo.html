@@ -1,0 +1,684 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>身份证识别演示 - ID Scanner Library</title>
+  <style>
+    body {
+      font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+      margin: 0;
+      padding: 20px;
+      background-color: #f5f7fa;
+      color: #333;
+    }
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 20px;
+    }
+    .header h1 {
+      margin: 0;
+      color: #1890ff;
+    }
+    .header p {
+      color: #666;
+      margin: 10px 0 0;
+    }
+    .card {
+      background-color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 2px 12px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+      overflow: hidden;
+    }
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 20px;
+    }
+    .btn {
+      background-color: #1890ff;
+      color: white;
+      border: none;
+      padding: 10px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+      transition: background-color 0.3s;
+    }
+    .btn:hover {
+      background-color: #40a9ff;
+    }
+    .btn:disabled {
+      background-color: #bfbfbf;
+      cursor: not-allowed;
+    }
+    .btn-secondary {
+      background-color: #f0f0f0;
+      color: #333;
+    }
+    .btn-secondary:hover {
+      background-color: #e0e0e0;
+    }
+    .btn-danger {
+      background-color: #ff4d4f;
+    }
+    .btn-danger:hover {
+      background-color: #ff7875;
+    }
+    .camera-container {
+      position: relative;
+      width: 100%;
+      max-width: 640px;
+      margin: 0 auto;
+      overflow: hidden;
+      border-radius: 4px;
+    }
+    #video-preview {
+      width: 100%;
+      display: block;
+      background-color: #eee;
+      border: 1px solid #ddd;
+    }
+    .detection-box {
+      position: absolute;
+      border: 2px solid #52c41a;
+      box-shadow: 0 0 0 1px rgba(82, 196, 26, 0.3);
+      pointer-events: none;
+    }
+    .camera-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      background-color: rgba(0, 0, 0, 0.7);
+      color: white;
+      z-index: 10;
+    }
+    .camera-overlay.hidden {
+      display: none;
+    }
+    .camera-overlay p {
+      margin: 10px 0;
+      font-size: 16px;
+    }
+    .result-container {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 20px;
+    }
+    .result-card {
+      flex: 1;
+      min-width: 300px;
+    }
+    .result-card h3 {
+      margin-top: 0;
+      border-bottom: 1px solid #eee;
+      padding-bottom: 10px;
+    }
+    .result-item {
+      margin-bottom: 8px;
+    }
+    .result-label {
+      display: inline-block;
+      width: 100px;
+      color: #666;
+    }
+    .result-value {
+      font-weight: 500;
+    }
+    .image-preview {
+      max-width: 100%;
+      max-height: 300px;
+      margin-top: 10px;
+      border: 1px solid #eee;
+    }
+    .status {
+      padding: 10px;
+      margin-top: 10px;
+      background-color: #f6ffed;
+      border: 1px solid #b7eb8f;
+      border-radius: 4px;
+    }
+    .status.error {
+      background-color: #fff2f0;
+      border-color: #ffccc7;
+    }
+    .log-container {
+      max-height: 200px;
+      overflow-y: auto;
+      font-family: monospace;
+      font-size: 12px;
+      background-color: #f9f9f9;
+      padding: 10px;
+      border: 1px solid #eee;
+      border-radius: 4px;
+    }
+    .log-entry {
+      margin: 2px 0;
+      white-space: pre-wrap;
+    }
+    .log-debug { color: #8c8c8c; }
+    .log-info { color: #1890ff; }
+    .log-warn { color: #faad14; }
+    .log-error { color: #ff4d4f; }
+    @media (max-width: 768px) {
+      .container {
+        padding: 10px;
+      }
+      .controls {
+        flex-direction: column;
+      }
+      .result-container {
+        flex-direction: column;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1>身份证识别演示</h1>
+      <p>使用 ID Scanner Library 识别和验证身份证信息</p>
+    </div>
+
+    <div class="card">
+      <div class="controls">
+        <button id="start-camera" class="btn">启动摄像头</button>
+        <button id="stop-camera" class="btn btn-secondary" disabled>停止摄像头</button>
+        <button id="take-photo" class="btn" disabled>拍照识别</button>
+        <button id="verify-id" class="btn" disabled>验证身份证</button>
+        <input type="file" id="upload-image" accept="image/*" style="display: none;">
+        <button id="upload-btn" class="btn btn-secondary">上传图片</button>
+      </div>
+
+      <div class="camera-container">
+        <video id="video-preview" autoplay playsinline></video>
+        <div id="detection-box" class="detection-box" style="display: none;"></div>
+        <div id="camera-overlay" class="camera-overlay">
+          <p>点击"启动摄像头"开始识别身份证</p>
+          <button id="overlay-start-btn" class="btn">启动摄像头</button>
+        </div>
+      </div>
+
+      <div id="status" class="status" style="display: none;"></div>
+    </div>
+
+    <div class="result-container">
+      <div class="card result-card">
+        <h3>身份证信息</h3>
+        <div id="id-card-result">
+          <p>未检测到身份证，请将身份证放入摄像头视野中</p>
+        </div>
+        <div id="id-card-image" style="text-align: center; margin-top: 20px;"></div>
+      </div>
+
+      <div class="card result-card">
+        <h3>验证结果</h3>
+        <div id="verification-result">
+          <p>尚未进行验证</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>日志信息</h3>
+      <div class="log-container" id="log-container"></div>
+    </div>
+  </div>
+
+  <script src="../dist/id-scanner-lib.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // DOM 元素
+      const startCameraBtn = document.getElementById('start-camera');
+      const stopCameraBtn = document.getElementById('stop-camera');
+      const takePhotoBtn = document.getElementById('take-photo');
+      const verifyIdBtn = document.getElementById('verify-id');
+      const uploadBtn = document.getElementById('upload-btn');
+      const uploadInput = document.getElementById('upload-image');
+      const videoPreview = document.getElementById('video-preview');
+      const detectionBox = document.getElementById('detection-box');
+      const cameraOverlay = document.getElementById('camera-overlay');
+      const overlayStartBtn = document.getElementById('overlay-start-btn');
+      const statusElem = document.getElementById('status');
+      const idCardResultElem = document.getElementById('id-card-result');
+      const idCardImageElem = document.getElementById('id-card-image');
+      const verificationResultElem = document.getElementById('verification-result');
+      const logContainer = document.getElementById('log-container');
+
+      // 当前检测到的身份证信息
+      let currentIDCardInfo = null;
+      // ID Card 模块实例
+      let idCardModule = null;
+
+      // 自定义日志处理程序
+      class DemoLogHandler {
+        constructor() {}
+
+        handle(entry) {
+          const logEntry = document.createElement('div');
+          logEntry.className = `log-entry log-${entry.level}`;
+          logEntry.textContent = `[${new Date(entry.timestamp).toLocaleTimeString()}] [${entry.level.toUpperCase()}] [${entry.tag}] ${entry.message}`;
+          
+          if (entry.error) {
+            logEntry.textContent += ` - ${entry.error.message}`;
+          }
+          
+          logContainer.appendChild(logEntry);
+          logContainer.scrollTop = logContainer.scrollHeight;
+        }
+      }
+
+      // 显示状态信息
+      function showStatus(message, isError = false) {
+        statusElem.textContent = message;
+        statusElem.className = isError ? 'status error' : 'status';
+        statusElem.style.display = 'block';
+        
+        if (!isError) {
+          setTimeout(() => {
+            statusElem.style.display = 'none';
+          }, 3000);
+        }
+      }
+
+      // 更新身份证信息显示
+      function updateIDCardInfo(idCardInfo) {
+        if (!idCardInfo) {
+          idCardResultElem.innerHTML = '<p>未检测到身份证，请将身份证放入摄像头视野中</p>';
+          idCardImageElem.innerHTML = '';
+          return;
+        }
+
+        currentIDCardInfo = idCardInfo;
+        
+        // 更新检测框位置
+        if (idCardInfo.edge) {
+          const videoRect = videoPreview.getBoundingClientRect();
+          const scaleX = videoRect.width / videoPreview.videoWidth;
+          const scaleY = videoRect.height / videoPreview.videoHeight;
+          
+          const left = idCardInfo.edge.topLeft.x * scaleX;
+          const top = idCardInfo.edge.topLeft.y * scaleY;
+          const width = (idCardInfo.edge.topRight.x - idCardInfo.edge.topLeft.x) * scaleX;
+          const height = (idCardInfo.edge.bottomLeft.y - idCardInfo.edge.topLeft.y) * scaleY;
+          
+          detectionBox.style.left = `${left}px`;
+          detectionBox.style.top = `${top}px`;
+          detectionBox.style.width = `${width}px`;
+          detectionBox.style.height = `${height}px`;
+          detectionBox.style.display = 'block';
+        }
+
+        // 构建身份证信息HTML
+        let html = '<div class="result-item">';
+        html += `<span class="result-label">类型:</span>`;
+        html += `<span class="result-value">${getIDCardTypeName(idCardInfo.type)}</span>`;
+        html += '</div>';
+        
+        if (idCardInfo.name) {
+          html += '<div class="result-item">';
+          html += `<span class="result-label">姓名:</span>`;
+          html += `<span class="result-value">${idCardInfo.name}</span>`;
+          html += '</div>';
+        }
+        
+        if (idCardInfo.gender) {
+          html += '<div class="result-item">';
+          html += `<span class="result-label">性别:</span>`;
+          html += `<span class="result-value">${idCardInfo.gender}</span>`;
+          html += '</div>';
+        }
+        
+        if (idCardInfo.ethnicity) {
+          html += '<div class="result-item">';
+          html += `<span class="result-label">民族:</span>`;
+          html += `<span class="result-value">${idCardInfo.ethnicity}</span>`;
+          html += '</div>';
+        }
+        
+        if (idCardInfo.birthDate) {
+          html += '<div class="result-item">';
+          html += `<span class="result-label">出生日期:</span>`;
+          html += `<span class="result-value">${idCardInfo.birthDate}</span>`;
+          html += '</div>';
+        }
+        
+        if (idCardInfo.address) {
+          html += '<div class="result-item">';
+          html += `<span class="result-label">地址:</span>`;
+          html += `<span class="result-value">${idCardInfo.address}</span>`;
+          html += '</div>';
+        }
+        
+        if (idCardInfo.idNumber) {
+          html += '<div class="result-item">';
+          html += `<span class="result-label">身份证号:</span>`;
+          html += `<span class="result-value">${idCardInfo.idNumber}</span>`;
+          html += '</div>';
+        }
+        
+        if (idCardInfo.issueAuthority) {
+          html += '<div class="result-item">';
+          html += `<span class="result-label">签发机关:</span>`;
+          html += `<span class="result-value">${idCardInfo.issueAuthority}</span>`;
+          html += '</div>';
+        }
+        
+        if (idCardInfo.validFrom) {
+          html += '<div class="result-item">';
+          html += `<span class="result-label">有效期起始:</span>`;
+          html += `<span class="result-value">${idCardInfo.validFrom}</span>`;
+          html += '</div>';
+        }
+        
+        if (idCardInfo.validTo) {
+          html += '<div class="result-item">';
+          html += `<span class="result-label">有效期截止:</span>`;
+          html += `<span class="result-value">${idCardInfo.validTo}</span>`;
+          html += '</div>';
+        }
+        
+        if (idCardInfo.confidence) {
+          html += '<div class="result-item">';
+          html += `<span class="result-label">置信度:</span>`;
+          html += `<span class="result-value">${(idCardInfo.confidence * 100).toFixed(2)}%</span>`;
+          html += '</div>';
+        }
+        
+        idCardResultElem.innerHTML = html;
+        
+        // 验证按钮启用
+        verifyIdBtn.disabled = false;
+        
+        // 显示图像
+        if (idCardInfo.image) {
+          const canvas = document.createElement('canvas');
+          canvas.width = idCardInfo.image.width;
+          canvas.height = idCardInfo.image.height;
+          
+          const ctx = canvas.getContext('2d');
+          ctx.putImageData(idCardInfo.image, 0, 0);
+          
+          const img = document.createElement('img');
+          img.src = canvas.toDataURL('image/jpeg');
+          img.className = 'image-preview';
+          img.alt = '身份证图像';
+          
+          idCardImageElem.innerHTML = '';
+          idCardImageElem.appendChild(img);
+        }
+      }
+
+      // 更新验证结果显示
+      function updateVerificationResult(verificationResult) {
+        if (!verificationResult) {
+          verificationResultElem.innerHTML = '<p>尚未进行验证</p>';
+          return;
+        }
+        
+        let html = '<div class="result-item">';
+        html += `<span class="result-label">验证结果:</span>`;
+        html += `<span class="result-value" style="color: ${verificationResult.isValid ? '#52c41a' : '#ff4d4f'}">`;
+        html += verificationResult.isValid ? '通过' : '未通过';
+        html += `</span>`;
+        html += '</div>';
+        
+        html += '<div class="result-item">';
+        html += `<span class="result-label">验证分数:</span>`;
+        html += `<span class="result-value">${(verificationResult.score * 100).toFixed(2)}%</span>`;
+        html += '</div>';
+        
+        if (verificationResult.failureReason) {
+          html += '<div class="result-item">';
+          html += `<span class="result-label">失败原因:</span>`;
+          html += `<span class="result-value" style="color: #ff4d4f">${verificationResult.failureReason}</span>`;
+          html += '</div>';
+        }
+        
+        if (verificationResult.details) {
+          html += '<h4>详细信息</h4>';
+          
+          if (verificationResult.details.idNumberValid !== undefined) {
+            html += '<div class="result-item">';
+            html += `<span class="result-label">号码有效性:</span>`;
+            html += `<span class="result-value" style="color: ${verificationResult.details.idNumberValid ? '#52c41a' : '#ff4d4f'}">`;
+            html += verificationResult.details.idNumberValid ? '有效' : '无效';
+            html += `</span>`;
+            html += '</div>';
+          }
+          
+          if (verificationResult.details.isExpired !== undefined) {
+            html += '<div class="result-item">';
+            html += `<span class="result-label">是否过期:</span>`;
+            html += `<span class="result-value" style="color: ${!verificationResult.details.isExpired ? '#52c41a' : '#ff4d4f'}">`;
+            html += verificationResult.details.isExpired ? '已过期' : '未过期';
+            html += `</span>`;
+            html += '</div>';
+          }
+          
+          if (verificationResult.details.antiFakePassed !== undefined) {
+            html += '<div class="result-item">';
+            html += `<span class="result-label">防伪检测:</span>`;
+            html += `<span class="result-value" style="color: ${verificationResult.details.antiFakePassed ? '#52c41a' : '#ff4d4f'}">`;
+            html += verificationResult.details.antiFakePassed ? '通过' : '未通过';
+            html += `</span>`;
+            html += '</div>';
+          }
+        }
+        
+        verificationResultElem.innerHTML = html;
+      }
+
+      // 获取身份证类型名称
+      function getIDCardTypeName(type) {
+        const typeMap = {
+          'second_generation_front': '第二代居民身份证正面',
+          'second_generation_back': '第二代居民身份证背面',
+          'first_generation': '第一代居民身份证',
+          'temporary': '临时身份证',
+          'foreign_permanent': '外国人永久居留证',
+          'hmt_resident': '港澳台居民居住证',
+          'unknown': '未知类型'
+        };
+        return typeMap[type] || '未知类型';
+      }
+
+      // 初始化库
+      async function initializeLibrary() {
+        try {
+          // 创建日志处理程序
+          const logHandler = new DemoLogHandler();
+          
+          // 初始化库
+          await IDScannerLib.initialize({
+            debug: true,
+            logLevel: 'debug',
+            resourceBasePath: '../models',
+            preloadModules: ['idcard']
+          });
+          
+          // 添加日志处理程序
+          const logger = IDScannerLib.Logger.getInstance();
+          logger.addHandler(logHandler);
+          
+          // 创建身份证模块
+          idCardModule = new IDScannerLib.IDCardModule({
+            detectorOptions: {
+              minConfidence: 0.7,
+              enableOCR: true,
+              enableAntiFake: true
+            },
+            onIDCardDetected: (idCard) => {
+              updateIDCardInfo(idCard);
+              showStatus('已检测到身份证');
+            },
+            onError: (error) => {
+              console.error('身份证识别错误:', error);
+              showStatus(`识别错误: ${error.message}`, true);
+            }
+          });
+          
+          await idCardModule.initialize();
+          
+          showStatus('库初始化完成');
+          enableControls();
+        } catch (error) {
+          console.error('初始化失败:', error);
+          showStatus(`初始化失败: ${error.message}`, true);
+        }
+      }
+
+      // 启动摄像头
+      async function startCamera() {
+        try {
+          cameraOverlay.classList.add('hidden');
+          await idCardModule.startIDCardRecognition(videoPreview);
+          
+          startCameraBtn.disabled = true;
+          stopCameraBtn.disabled = false;
+          takePhotoBtn.disabled = false;
+          
+          showStatus('摄像头已启动');
+        } catch (error) {
+          console.error('启动摄像头失败:', error);
+          showStatus(`启动摄像头失败: ${error.message}`, true);
+          cameraOverlay.classList.remove('hidden');
+        }
+      }
+
+      // 停止摄像头
+      function stopCamera() {
+        idCardModule.stop();
+        
+        startCameraBtn.disabled = false;
+        stopCameraBtn.disabled = true;
+        takePhotoBtn.disabled = true;
+        detectionBox.style.display = 'none';
+        
+        cameraOverlay.classList.remove('hidden');
+        showStatus('摄像头已停止');
+      }
+
+      // 拍照并识别
+      async function takePhoto() {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = videoPreview.videoWidth;
+          canvas.height = videoPreview.videoHeight;
+          
+          const context = canvas.getContext('2d');
+          context.drawImage(videoPreview, 0, 0, canvas.width, canvas.height);
+          
+          showStatus('正在处理图像...');
+          
+          const result = await idCardModule.processImage(canvas);
+          
+          if (result.isSuccess() && result.data) {
+            updateIDCardInfo(result.data);
+            showStatus('识别成功');
+          } else {
+            showStatus('未检测到身份证，请调整位置或光线', true);
+          }
+        } catch (error) {
+          console.error('处理图像失败:', error);
+          showStatus(`处理图像失败: ${error.message}`, true);
+        }
+      }
+
+      // 验证身份证
+      function verifyIDCard() {
+        if (!currentIDCardInfo) {
+          showStatus('未检测到身份证信息，无法验证', true);
+          return;
+        }
+        
+        const verificationResult = idCardModule.verifyIDCard(currentIDCardInfo);
+        updateVerificationResult(verificationResult);
+        
+        if (verificationResult.isValid) {
+          showStatus('身份证验证通过');
+        } else {
+          showStatus(`身份证验证未通过: ${verificationResult.failureReason || ''}`, true);
+        }
+      }
+
+      // 处理上传的图像
+      async function processUploadedImage(file) {
+        if (!file || !file.type.startsWith('image/')) {
+          showStatus('请选择有效的图像文件', true);
+          return;
+        }
+        
+        try {
+          showStatus('正在处理图像...');
+          
+          const img = new Image();
+          img.onload = async () => {
+            const result = await idCardModule.processImage(img);
+            
+            if (result.isSuccess() && result.data) {
+              updateIDCardInfo(result.data);
+              showStatus('识别成功');
+            } else {
+              showStatus('未检测到身份证，请尝试其他图像', true);
+            }
+            
+            URL.revokeObjectURL(img.src);
+          };
+          
+          img.onerror = () => {
+            showStatus('图像加载失败', true);
+            URL.revokeObjectURL(img.src);
+          };
+          
+          img.src = URL.createObjectURL(file);
+        } catch (error) {
+          console.error('处理上传图像失败:', error);
+          showStatus(`处理图像失败: ${error.message}`, true);
+        }
+      }
+
+      // 启用控制按钮
+      function enableControls() {
+        startCameraBtn.disabled = false;
+        uploadBtn.disabled = false;
+      }
+
+      // 注册事件监听
+      startCameraBtn.addEventListener('click', startCamera);
+      overlayStartBtn.addEventListener('click', startCamera);
+      stopCameraBtn.addEventListener('click', stopCamera);
+      takePhotoBtn.addEventListener('click', takePhoto);
+      verifyIdBtn.addEventListener('click', verifyIDCard);
+      
+      uploadBtn.addEventListener('click', () => {
+        uploadInput.click();
+      });
+      
+      uploadInput.addEventListener('change', (e) => {
+        if (e.target.files && e.target.files[0]) {
+          processUploadedImage(e.target.files[0]);
+        }
+      });
+
+      // 初始化库
+      initializeLibrary();
+    });
+  </script>
+</body>
+</html> 

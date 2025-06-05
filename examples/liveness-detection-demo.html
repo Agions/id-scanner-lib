@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ID Scanner 活体检测演示</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f7f9fc;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+        }
+        
+        .video-container {
+            position: relative;
+            width: 640px;
+            background-color: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        #video {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .controls {
+            width: 100%;
+            max-width: 640px;
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+        
+        button.active {
+            background-color: #27ae60;
+        }
+        
+        .results {
+            width: 100%;
+            max-width: 640px;
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        #resultText {
+            min-height: 100px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            font-family: monospace;
+            white-space: pre-wrap;
+        }
+        
+        .progress-container {
+            margin-top: 20px;
+            padding: 10px 0;
+        }
+        
+        .progress-bar {
+            height: 8px;
+            background-color: #ecf0f1;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .progress {
+            height: 100%;
+            width: 0;
+            background-color: #2ecc71;
+            transition: width 0.3s ease;
+        }
+        
+        .instruction {
+            text-align: center;
+            padding: 15px;
+            background-color: #f39c12;
+            color: white;
+            border-radius: 8px;
+            margin-top: 20px;
+            font-size: 18px;
+            font-weight: 500;
+            display: none;
+        }
+        
+        .option-group {
+            margin-bottom: 20px;
+        }
+        
+        .option-group h3 {
+            margin-bottom: 10px;
+        }
+        
+        .radio-group {
+            display: flex;
+            gap: 15px;
+        }
+        
+        .radio-group label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+        }
+        
+        .action-checkboxes {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .action-checkboxes label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+        }
+        
+        .upload-container {
+            margin-top: 20px;
+        }
+        
+        .file-upload {
+            display: none;
+        }
+        
+        .file-upload-label {
+            display: inline-block;
+            background-color: #9b59b6;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        
+        .file-upload-label:hover {
+            background-color: #8e44ad;
+        }
+        
+        .face-box {
+            position: absolute;
+            border: 2px solid #2ecc71;
+            border-radius: 4px;
+            background-color: rgba(46, 204, 113, 0.1);
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>ID Scanner 活体检测演示</h1>
+    
+    <div class="container">
+        <div class="video-container">
+            <video id="video" autoplay playsinline muted></video>
+            <canvas id="canvas"></canvas>
+        </div>
+        
+        <div class="controls">
+            <div class="button-group">
+                <button id="startCamera">开启摄像头</button>
+                <button id="stopCamera" disabled>停止摄像头</button>
+            </div>
+            
+            <div class="option-group">
+                <h3>活体检测类型</h3>
+                <div class="radio-group">
+                    <label>
+                        <input type="radio" name="livenessType" value="passive" checked>
+                        被动式（分析真人特征）
+                    </label>
+                    <label>
+                        <input type="radio" name="livenessType" value="active">
+                        主动式（需要指定动作）
+                    </label>
+                </div>
+                
+                <div id="activeOptions" style="margin-top: 15px; display: none;">
+                    <h4>选择需要的动作：</h4>
+                    <div class="action-checkboxes">
+                        <label>
+                            <input type="checkbox" name="action" value="blink" checked>
+                            眨眼
+                        </label>
+                        <label>
+                            <input type="checkbox" name="action" value="nod">
+                            点头
+                        </label>
+                        <label>
+                            <input type="checkbox" name="action" value="shake">
+                            摇头
+                        </label>
+                        <label>
+                            <input type="checkbox" name="action" value="smile">
+                            微笑
+                        </label>
+                        <label>
+                            <input type="checkbox" name="action" value="mouth_open">
+                            张嘴
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="button-group">
+                <button id="startLiveness">开始活体检测</button>
+                <button id="resetLiveness" disabled>重置</button>
+            </div>
+            
+            <div id="instruction" class="instruction">
+                请保持面部在画面中
+            </div>
+            
+            <div class="progress-container">
+                <div class="progress-bar">
+                    <div id="progress" class="progress"></div>
+                </div>
+            </div>
+            
+            <div class="upload-container">
+                <label class="file-upload-label" for="imageUpload">上传图片进行检测</label>
+                <input type="file" id="imageUpload" class="file-upload" accept="image/*">
+            </div>
+        </div>
+        
+        <div class="results">
+            <h3>检测结果</h3>
+            <pre id="resultText">等待开始活体检测...</pre>
+        </div>
+    </div>
+    
+    <!-- 加载库 -->
+    <script src="../dist/id-scanner-lib.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            // 获取DOM元素
+            const videoEl = document.getElementById('video');
+            const canvasEl = document.getElementById('canvas');
+            const ctx = canvasEl.getContext('2d');
+            
+            const startCameraBtn = document.getElementById('startCamera');
+            const stopCameraBtn = document.getElementById('stopCamera');
+            const startLivenessBtn = document.getElementById('startLiveness');
+            const resetLivenessBtn = document.getElementById('resetLiveness');
+            const imageUploadEl = document.getElementById('imageUpload');
+            const resultTextEl = document.getElementById('resultText');
+            const progressEl = document.getElementById('progress');
+            const instructionEl = document.getElementById('instruction');
+            const activeOptionsEl = document.getElementById('activeOptions');
+            
+            // 类型选择
+            const livenessTypeRadios = document.getElementsByName('livenessType');
+            const actionCheckboxes = document.getElementsByName('action');
+            
+            let faceModule;
+            let livenessDetector;
+            let livenessSession = null;
+            let isDetecting = false;
+            let currentAction = null;
+            let detectedActions = [];
+            
+            // 初始化库
+            try {
+                await IDScannerLib.IDScannerLib.initialize({
+                    debug: true
+                });
+                
+                showResult('库初始化成功');
+                
+                // 创建人脸模块
+                faceModule = new IDScannerLib.FaceModule({
+                    onFaceDetected: handleFaceDetected,
+                    onLivenessDetected: handleLivenessDetected,
+                    onError: handleError
+                });
+                
+                await faceModule.initialize();
+                
+                // 获取活体检测器
+                livenessDetector = IDScannerLib.IDScannerLib.createLivenessDetector({
+                    detectionType: 'PASSIVE'
+                });
+                
+                showResult('活体检测模块初始化完成，可以开始使用');
+            } catch (error) {
+                showError(`初始化失败: ${error.message}`);
+            }
+            
+            // 类型选择变化监听
+            for (const radio of livenessTypeRadios) {
+                radio.addEventListener('change', (e) => {
+                    if (e.target.value === 'active') {
+                        activeOptionsEl.style.display = 'block';
+                    } else {
+                        activeOptionsEl.style.display = 'none';
+                    }
+                });
+            }
+            
+            // 启动摄像头按钮点击事件
+            startCameraBtn.addEventListener('click', async () => {
+                try {
+                    await faceModule.startFaceRecognition(videoEl);
+                    startCameraBtn.disabled = true;
+                    stopCameraBtn.disabled = false;
+                    startLivenessBtn.disabled = false;
+                    showResult('摄像头已启动');
+                    
+                    // 调整canvas大小以匹配视频
+                    setTimeout(() => {
+                        canvasEl.width = videoEl.videoWidth;
+                        canvasEl.height = videoEl.videoHeight;
+                    }, 500);
+                } catch (error) {
+                    showError(`启动摄像头失败: ${error.message}`);
+                }
+            });
+            
+            // 停止摄像头按钮点击事件
+            stopCameraBtn.addEventListener('click', () => {
+                faceModule.stop();
+                isDetecting = false;
+                startCameraBtn.disabled = false;
+                stopCameraBtn.disabled = true;
+                startLivenessBtn.disabled = true;
+                resetLivenessBtn.disabled = true;
+                showResult('摄像头已停止');
+                clearCanvas();
+                hideInstruction();
+                resetProgress();
+            });
+            
+            // 开始活体检测按钮点击事件
+            startLivenessBtn.addEventListener('click', async () => {
+                if (isDetecting) {
+                    return;
+                }
+                
+                isDetecting = true;
+                startLivenessBtn.disabled = true;
+                resetLivenessBtn.disabled = false;
+                
+                let livenessType = getSelectedLivenessType();
+                
+                try {
+                    if (livenessType === 'passive') {
+                        // 被动式检测
+                        showResult('开始被动式活体检测...');
+                        showInstruction('请面向摄像头，保持面部在画面中');
+                        
+                        // 创建活体会话
+                        livenessSession = faceModule.createLivenessSession({
+                            type: 'passive',
+                            minConfidence: 0.7
+                        });
+                        
+                    } else {
+                        // 主动式检测
+                        const selectedActions = getSelectedActions();
+                        if (selectedActions.length === 0) {
+                            throw new Error('请至少选择一个动作');
+                        }
+                        
+                        showResult('开始主动式活体检测...');
+                        
+                        // 创建活体会话
+                        livenessSession = faceModule.createLivenessSession({
+                            type: 'active',
+                            actions: selectedActions,
+                            minConfidence: 0.7
+                        });
+                        
+                        // 获取第一个动作并更新指令
+                        detectedActions = [];
+                        currentAction = livenessSession.nextAction();
+                        updateActiveInstruction(currentAction);
+                    }
+                } catch (error) {
+                    resetLiveness();
+                    showError(`启动活体检测失败: ${error.message}`);
+                }
+            });
+            
+            // 重置活体检测按钮点击事件
+            resetLivenessBtn.addEventListener('click', () => {
+                resetLiveness();
+            });
+            
+            // 上传图片处理
+            imageUploadEl.addEventListener('change', async (event) => {
+                if (event.target.files && event.target.files[0]) {
+                    const file = event.target.files[0];
+                    showResult(`正在处理图片中的活体检测: ${file.name}`);
+                    
+                    try {
+                        const result = await livenessDetector.detectLiveness(file);
+                        
+                        // 显示图片和结果
+                        const img = new Image();
+                        img.onload = () => {
+                            canvasEl.width = img.width;
+                            canvasEl.height = img.height;
+                            ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+                            ctx.drawImage(img, 0, 0);
+                            
+                            const livenessResult = {
+                                isLive: result.isLive ? '是' : '否',
+                                score: (result.score * 100).toFixed(1) + '%',
+                                type: '被动式（静态图片）',
+                                processingTime: result.processingTime + 'ms'
+                            };
+                            
+                            showResult(`图片活体检测结果:\n${formatObject(livenessResult)}`);
+                            
+                            // 根据结果显示不同颜色的边框
+                            const borderColor = result.isLive ? '#2ecc71' : '#e74c3c';
+                            if (result.boundingBox) {
+                                const box = result.boundingBox;
+                                ctx.strokeStyle = borderColor;
+                                ctx.lineWidth = 3;
+                                ctx.strokeRect(box.x, box.y, box.width, box.height);
+                            }
+                        };
+                        img.src = URL.createObjectURL(file);
+                    } catch (error) {
+                        showError(`处理图片失败: ${error.message}`);
+                    }
+                }
+            });
+            
+            // 处理人脸检测结果
+            function handleFaceDetected(faces) {
+                if (!isDetecting || !livenessSession) return;
+                
+                clearCanvas();
+                
+                // 调整canvas大小以匹配视频
+                if (videoEl.videoWidth > 0 && canvasEl.width !== videoEl.videoWidth) {
+                    canvasEl.width = videoEl.videoWidth;
+                    canvasEl.height = videoEl.videoHeight;
+                }
+                
+                // 绘制每个检测到的人脸
+                faces.forEach(face => {
+                    drawFaceBox(ctx, face);
+                });
+                
+                // 过程中的进度更新
+                if (livenessSession.type === 'passive') {
+                    // 被动式检测的进度
+                    const progress = livenessSession.getProgress();
+                    updateProgress(progress);
+                }
+            }
+            
+            // 处理活体检测结果
+            function handleLivenessDetected(result) {
+                if (!isDetecting || !livenessSession) return;
+                
+                if (livenessSession.type === 'passive') {
+                    // 被动式活体检测完成
+                    if (result.isCompleted) {
+                        completeDetection(result);
+                    }
+                } else {
+                    // 主动式活体检测
+                    if (result.action === currentAction && result.isCompleted) {
+                        // 动作完成
+                        detectedActions.push(result.action);
+                        
+                        // 显示进度
+                        const progress = detectedActions.length / livenessSession.actions.length;
+                        updateProgress(progress);
+                        
+                        // 检查是否所有动作都完成
+                        if (detectedActions.length >= livenessSession.actions.length) {
+                            completeDetection(result);
+                        } else {
+                            // 获取下一个动作
+                            currentAction = livenessSession.nextAction();
+                            updateActiveInstruction(currentAction);
+                        }
+                    }
+                }
+            }
+            
+            // 完成活体检测
+            function completeDetection(result) {
+                const livenessResult = {
+                    isLive: result.isLive ? '是' : '否',
+                    score: (result.score * 100).toFixed(1) + '%',
+                    type: getReadableLivenessType(livenessSession.type),
+                    processingTime: result.processingTime + 'ms'
+                };
+                
+                if (result.actions && result.actions.length > 0) {
+                    livenessResult.actions = result.actions.map(getReadableAction).join(', ');
+                }
+                
+                showResult(`活体检测完成!\n${formatObject(livenessResult)}`);
+                
+                // 更新UI
+                hideInstruction();
+                updateProgress(1.0);
+                
+                // 显示不同颜色的边框
+                if (result.isLive) {
+                    showInstruction('✓ 活体检测通过', '#27ae60');
+                } else {
+                    showInstruction('✗ 活体检测失败', '#e74c3c');
+                }
+                
+                // 重置会话但保持状态，以便用户可以手动重置
+                livenessSession = null;
+                currentAction = null;
+                
+                // 3秒后自动重置指示器
+                setTimeout(() => {
+                    if (!isDetecting) return;
+                    hideInstruction();
+                }, 3000);
+            }
+            
+            // 处理错误
+            function handleError(error) {
+                showError(`发生错误: ${error.message}`);
+                resetLiveness();
+            }
+            
+            // 重置活体检测
+            function resetLiveness() {
+                isDetecting = false;
+                livenessSession = null;
+                currentAction = null;
+                detectedActions = [];
+                startLivenessBtn.disabled = false;
+                resetLivenessBtn.disabled = true;
+                hideInstruction();
+                resetProgress();
+                showResult('活体检测已重置，可以重新开始');
+            }
+            
+            // 更新进度条
+            function updateProgress(progress) {
+                progressEl.style.width = `${progress * 100}%`;
+            }
+            
+            // 重置进度条
+            function resetProgress() {
+                progressEl.style.width = '0%';
+            }
+            
+            // 显示指令
+            function showInstruction(text, bgColor = '#f39c12') {
+                instructionEl.textContent = text;
+                instructionEl.style.backgroundColor = bgColor;
+                instructionEl.style.display = 'block';
+            }
+            
+            // 隐藏指令
+            function hideInstruction() {
+                instructionEl.style.display = 'none';
+            }
+            
+            // 更新主动式检测的指令
+            function updateActiveInstruction(action) {
+                const actionText = getReadableAction(action);
+                showInstruction(`请${actionText}`);
+            }
+            
+            // 显示结果
+            function showResult(message) {
+                resultTextEl.innerText = message;
+            }
+            
+            // 显示错误
+            function showError(message) {
+                resultTextEl.innerHTML = `<span style="color: red;">${message}</span>`;
+            }
+            
+            // 清空画布
+            function clearCanvas() {
+                if (canvasEl.width > 0) {
+                    ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+                }
+            }
+            
+            // 绘制人脸框
+            function drawFaceBox(ctx, face) {
+                const box = face.boundingBox;
+                
+                ctx.strokeStyle = isDetecting ? '#f39c12' : '#2ecc71';
+                ctx.lineWidth = 2;
+                ctx.strokeRect(box.x, box.y, box.width, box.height);
+                
+                ctx.fillStyle = isDetecting ? 'rgba(243, 156, 18, 0.15)' : 'rgba(46, 204, 113, 0.15)';
+                ctx.fillRect(box.x, box.y, box.width, box.height);
+            }
+            
+            // 获取选择的活体检测类型
+            function getSelectedLivenessType() {
+                for (const radio of livenessTypeRadios) {
+                    if (radio.checked) {
+                        return radio.value;
+                    }
+                }
+                return 'passive';
+            }
+            
+            // 获取选择的动作
+            function getSelectedActions() {
+                const actions = [];
+                for (const checkbox of actionCheckboxes) {
+                    if (checkbox.checked) {
+                        actions.push(checkbox.value);
+                    }
+                }
+                return actions;
+            }
+            
+            // 获取可读的活体类型名称
+            function getReadableLivenessType(type) {
+                const types = {
+                    'passive': '被动式',
+                    'active': '主动式',
+                    'hybrid': '混合式'
+                };
+                return types[type] || type;
+            }
+            
+            // 获取可读的动作名称
+            function getReadableAction(action) {
+                const actions = {
+                    'blink': '眨眼',
+                    'nod': '点头',
+                    'shake': '摇头',
+                    'smile': '微笑',
+                    'mouth_open': '张嘴',
+                    'gaze': '看向指定方向'
+                };
+                return actions[action] || action;
+            }
+            
+            // 格式化对象为字符串
+            function formatObject(obj) {
+                return Object.entries(obj)
+                    .map(([key, value]) => `  ${key}: ${value}`)
+                    .join('\n');
+            }
+        });
+    </script>
+</body>
+</html> 

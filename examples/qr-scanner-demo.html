@@ -1,0 +1,542 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ID Scanner 二维码扫描演示</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f7f9fc;
+        }
+        
+        h1 {
+            color: #2c3e50;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+        }
+        
+        .video-container {
+            position: relative;
+            width: 640px;
+            background-color: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        #video {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        #canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .controls {
+            width: 100%;
+            max-width: 640px;
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+        
+        button.active {
+            background-color: #27ae60;
+        }
+        
+        .results {
+            width: 100%;
+            max-width: 640px;
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        #resultText {
+            min-height: 100px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            font-family: monospace;
+            white-space: pre-wrap;
+            overflow-wrap: break-word;
+        }
+        
+        .formats {
+            margin: 15px 0;
+        }
+        
+        .formats-group {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .formats-group label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+        }
+        
+        .upload-container {
+            margin-top: 20px;
+        }
+        
+        .file-upload {
+            display: none;
+        }
+        
+        .file-upload-label {
+            display: inline-block;
+            background-color: #9b59b6;
+            color: white;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        
+        .file-upload-label:hover {
+            background-color: #8e44ad;
+        }
+        
+        .code-overlay {
+            position: absolute;
+            border: 2px solid #2ecc71;
+            background-color: rgba(46, 204, 113, 0.1);
+            pointer-events: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>ID Scanner 二维码扫描演示</h1>
+    
+    <div class="container">
+        <div class="video-container">
+            <video id="video" autoplay playsinline muted></video>
+            <canvas id="canvas"></canvas>
+        </div>
+        
+        <div class="controls">
+            <div class="button-group">
+                <button id="startCamera">开启摄像头</button>
+                <button id="stopCamera" disabled>停止摄像头</button>
+            </div>
+            
+            <div class="formats">
+                <h3>扫描格式</h3>
+                <div class="formats-group">
+                    <label>
+                        <input type="checkbox" name="format" value="qrcode" checked>
+                        QR码
+                    </label>
+                    <label>
+                        <input type="checkbox" name="format" value="code_128" checked>
+                        Code 128
+                    </label>
+                    <label>
+                        <input type="checkbox" name="format" value="code_39" checked>
+                        Code 39
+                    </label>
+                    <label>
+                        <input type="checkbox" name="format" value="ean_13" checked>
+                        EAN-13
+                    </label>
+                </div>
+            </div>
+            
+            <div class="button-group">
+                <button id="startScan">开始扫描</button>
+                <button id="stopScan" disabled>停止扫描</button>
+            </div>
+            
+            <div class="upload-container">
+                <label class="file-upload-label" for="imageUpload">上传图片进行扫描</label>
+                <input type="file" id="imageUpload" class="file-upload" accept="image/*">
+            </div>
+        </div>
+        
+        <div class="results">
+            <h3>扫描结果</h3>
+            <pre id="resultText">等待开始扫描...</pre>
+        </div>
+    </div>
+    
+    <!-- 加载库 -->
+    <script src="../dist/id-scanner-lib.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            // 获取DOM元素
+            const videoEl = document.getElementById('video');
+            const canvasEl = document.getElementById('canvas');
+            const ctx = canvasEl.getContext('2d');
+            
+            const startCameraBtn = document.getElementById('startCamera');
+            const stopCameraBtn = document.getElementById('stopCamera');
+            const startScanBtn = document.getElementById('startScan');
+            const stopScanBtn = document.getElementById('stopScan');
+            const imageUploadEl = document.getElementById('imageUpload');
+            const resultTextEl = document.getElementById('resultText');
+            const formatCheckboxes = document.getElementsByName('format');
+            
+            let qrScanner;
+            let isScanning = false;
+            let codeOverlay = null;
+            
+            // 初始化库
+            try {
+                await IDScannerLib.IDScannerLib.initialize({
+                    debug: true
+                });
+                
+                showResult('库初始化成功');
+                
+                // 创建二维码扫描器
+                qrScanner = IDScannerLib.IDScannerLib.createQRScanner({
+                    scanFrequency: 200,
+                    formats: getSelectedFormats()
+                });
+                
+                await qrScanner.init();
+                
+                showResult('二维码扫描器初始化完成，可以开始使用');
+            } catch (error) {
+                showError(`初始化失败: ${error.message}`);
+            }
+            
+            // 获取选中的格式
+            function getSelectedFormats() {
+                const formats = [];
+                for (const checkbox of formatCheckboxes) {
+                    if (checkbox.checked) {
+                        formats.push(checkbox.value);
+                    }
+                }
+                return formats.length > 0 ? formats : ['qrcode'];
+            }
+            
+            // 启动摄像头按钮点击事件
+            startCameraBtn.addEventListener('click', async () => {
+                try {
+                    // 获取摄像头
+                    const cameraManager = IDScannerLib.CameraManager.getInstance();
+                    await cameraManager.init({
+                        facingMode: 'environment', // 使用后置摄像头，如有
+                        idealResolution: { width: 1280, height: 720 }
+                    });
+                    
+                    // 设置视频元素
+                    cameraManager.setVideoElement(videoEl);
+                    
+                    // 启动摄像头
+                    await cameraManager.start();
+                    
+                    startCameraBtn.disabled = true;
+                    stopCameraBtn.disabled = false;
+                    startScanBtn.disabled = false;
+                    
+                    showResult('摄像头已启动');
+                    
+                    // 调整canvas大小以匹配视频
+                    setTimeout(() => {
+                        canvasEl.width = videoEl.videoWidth;
+                        canvasEl.height = videoEl.videoHeight;
+                    }, 500);
+                } catch (error) {
+                    showError(`启动摄像头失败: ${error.message}`);
+                }
+            });
+            
+            // 停止摄像头按钮点击事件
+            stopCameraBtn.addEventListener('click', () => {
+                const cameraManager = IDScannerLib.CameraManager.getInstance();
+                
+                if (isScanning) {
+                    stopScanning();
+                }
+                
+                cameraManager.stop();
+                
+                startCameraBtn.disabled = false;
+                stopCameraBtn.disabled = true;
+                startScanBtn.disabled = true;
+                stopScanBtn.disabled = true;
+                
+                clearCanvas();
+                showResult('摄像头已停止');
+            });
+            
+            // 开始扫描按钮点击事件
+            startScanBtn.addEventListener('click', async () => {
+                if (isScanning) return;
+                
+                try {
+                    // 更新支持的格式
+                    qrScanner.updateConfig({
+                        formats: getSelectedFormats()
+                    });
+                    
+                    // 启动实时扫描
+                    await qrScanner.startRealtime(videoEl);
+                    
+                    // 监听扫描结果
+                    qrScanner.on('module:realtime:result', handleScanResult);
+                    
+                    isScanning = true;
+                    startScanBtn.disabled = true;
+                    stopScanBtn.disabled = false;
+                    
+                    showResult('开始扫描，请将二维码/条形码对准摄像头...');
+                } catch (error) {
+                    showError(`启动扫描失败: ${error.message}`);
+                }
+            });
+            
+            // 停止扫描按钮点击事件
+            stopScanBtn.addEventListener('click', () => {
+                stopScanning();
+                showResult('扫描已停止');
+            });
+            
+            // 停止扫描
+            function stopScanning() {
+                if (!isScanning) return;
+                
+                qrScanner.off('module:realtime:result', handleScanResult);
+                qrScanner.stopRealtime();
+                
+                isScanning = false;
+                startScanBtn.disabled = false;
+                stopScanBtn.disabled = true;
+                
+                clearCanvas();
+            }
+            
+            // 处理扫描结果
+            function handleScanResult(event) {
+                if (!event.result) return;
+                
+                const result = event.result;
+                
+                // 显示结果
+                const resultObj = {
+                    content: result.content,
+                    format: formatDisplayName(result.format),
+                    timestamp: new Date().toLocaleTimeString()
+                };
+                
+                showResult(`扫描结果:\n${formatObject(resultObj)}`);
+                
+                // 绘制二维码位置
+                drawCodePosition(result);
+                
+                // 播放提示音
+                playBeepSound();
+            }
+            
+            // 绘制二维码位置
+            function drawCodePosition(result) {
+                clearCanvas();
+                
+                if (!result.position) return;
+                
+                const { topLeft, topRight, bottomLeft, bottomRight } = result.position;
+                
+                // 绘制边框
+                ctx.strokeStyle = '#2ecc71';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(topLeft.x, topLeft.y);
+                ctx.lineTo(topRight.x, topRight.y);
+                ctx.lineTo(bottomRight.x, bottomRight.y);
+                ctx.lineTo(bottomLeft.x, bottomLeft.y);
+                ctx.closePath();
+                ctx.stroke();
+                
+                // 添加半透明填充
+                ctx.fillStyle = 'rgba(46, 204, 113, 0.15)';
+                ctx.fill();
+            }
+            
+            // 清空画布
+            function clearCanvas() {
+                if (canvasEl.width > 0) {
+                    ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+                }
+                
+                // 移除之前的覆盖层
+                if (codeOverlay && codeOverlay.parentNode) {
+                    codeOverlay.parentNode.removeChild(codeOverlay);
+                    codeOverlay = null;
+                }
+            }
+            
+            // 播放提示音
+            function playBeepSound() {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gainNode = audioContext.createGain();
+                
+                oscillator.type = 'sine';
+                oscillator.frequency.value = 1000;
+                gainNode.gain.value = 0.1;
+                
+                oscillator.connect(gainNode);
+                gainNode.connect(audioContext.destination);
+                
+                oscillator.start(0);
+                setTimeout(() => oscillator.stop(), 100);
+            }
+            
+            // 上传图片处理
+            imageUploadEl.addEventListener('change', async (event) => {
+                if (event.target.files && event.target.files[0]) {
+                    const file = event.target.files[0];
+                    showResult(`正在处理图片: ${file.name}`);
+                    
+                    try {
+                        // 创建图像预览
+                        const reader = new FileReader();
+                        reader.onload = async (e) => {
+                            const img = new Image();
+                            img.onload = async () => {
+                                // 在canvas上显示图像
+                                canvasEl.width = img.width;
+                                canvasEl.height = img.height;
+                                ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+                                ctx.drawImage(img, 0, 0);
+                                
+                                // 扫描图像
+                                const result = await qrScanner.processImage(file, {
+                                    formats: getSelectedFormats()
+                                });
+                                
+                                if (result.isSuccess() && result.data) {
+                                    const scanResult = result.data;
+                                    
+                                    // 显示结果
+                                    const resultObj = {
+                                        content: scanResult.content,
+                                        format: formatDisplayName(scanResult.format)
+                                    };
+                                    
+                                    showResult(`图片扫描结果:\n${formatObject(resultObj)}`);
+                                    
+                                    // 显示扫描位置
+                                    if (scanResult.position) {
+                                        // 绘制边框
+                                        const { topLeft, topRight, bottomLeft, bottomRight } = scanResult.position;
+                                        
+                                        ctx.strokeStyle = '#2ecc71';
+                                        ctx.lineWidth = 3;
+                                        ctx.beginPath();
+                                        ctx.moveTo(topLeft.x, topLeft.y);
+                                        ctx.lineTo(topRight.x, topRight.y);
+                                        ctx.lineTo(bottomRight.x, bottomRight.y);
+                                        ctx.lineTo(bottomLeft.x, bottomLeft.y);
+                                        ctx.closePath();
+                                        ctx.stroke();
+                                        
+                                        // 添加半透明填充
+                                        ctx.fillStyle = 'rgba(46, 204, 113, 0.15)';
+                                        ctx.fill();
+                                    }
+                                } else {
+                                    showError('未在图片中检测到二维码或条形码');
+                                }
+                            };
+                            img.src = e.target.result;
+                        };
+                        reader.readAsDataURL(file);
+                    } catch (error) {
+                        showError(`处理图片失败: ${error.message}`);
+                    }
+                }
+            });
+            
+            // 格式名称美化
+            function formatDisplayName(format) {
+                const formatMap = {
+                    'qrcode': 'QR码',
+                    'code_128': 'Code 128',
+                    'code_39': 'Code 39',
+                    'ean_13': 'EAN-13'
+                };
+                
+                return formatMap[format] || format;
+            }
+            
+            // 显示结果
+            function showResult(message) {
+                resultTextEl.innerText = message;
+            }
+            
+            // 显示错误
+            function showError(message) {
+                resultTextEl.innerHTML = `<span style="color: red;">${message}</span>`;
+            }
+            
+            // 格式化对象为字符串
+            function formatObject(obj) {
+                return Object.entries(obj)
+                    .map(([key, value]) => `  ${key}: ${value}`)
+                    .join('\n');
+            }
+        });
+    </script>
+</body>
+</html> 

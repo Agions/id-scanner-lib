@@ -1,0 +1,853 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ID Scanner 综合演示</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f7f9fc;
+        }
+        
+        h1, h2, h3 {
+            color: #2c3e50;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .tabs {
+            display: flex;
+            border-bottom: 1px solid #ddd;
+            margin-bottom: 20px;
+        }
+        
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #f1f1f1;
+            border: 1px solid #ddd;
+            border-bottom: none;
+            margin-right: 5px;
+            border-radius: 5px 5px 0 0;
+            transition: background-color 0.2s;
+        }
+        
+        .tab.active {
+            background-color: #3498db;
+            color: white;
+            border-color: #3498db;
+        }
+        
+        .tab:hover:not(.active) {
+            background-color: #e0e0e0;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+        }
+        
+        .video-container {
+            position: relative;
+            width: 640px;
+            background-color: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        #video {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+        
+        #canvas-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+        }
+        
+        .controls {
+            width: 100%;
+            max-width: 640px;
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .button-group {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        button {
+            background-color: #3498db;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        
+        button:hover {
+            background-color: #2980b9;
+        }
+        
+        button:disabled {
+            background-color: #bdc3c7;
+            cursor: not-allowed;
+        }
+        
+        button.active {
+            background-color: #27ae60;
+        }
+        
+        .results {
+            width: 100%;
+            max-width: 640px;
+            background-color: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        #face-result, #qr-result {
+            min-height: 100px;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            font-family: monospace;
+            white-space: pre-wrap;
+            overflow-wrap: break-word;
+        }
+        
+        .section {
+            margin-bottom: 20px;
+        }
+        
+        .options-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .option-group {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        .checkbox-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            margin-top: 10px;
+        }
+        
+        .checkbox-group label {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            cursor: pointer;
+        }
+        
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        
+        .status-inactive {
+            background-color: #e74c3c;
+        }
+        
+        .status-active {
+            background-color: #2ecc71;
+        }
+        
+        .feature-info {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f8f9fa;
+            border-left: 4px solid #3498db;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+<body>
+    <h1>ID Scanner 综合演示</h1>
+    
+    <div class="tabs">
+        <div class="tab active" data-tab="scanner">扫描器</div>
+        <div class="tab" data-tab="docs">文档</div>
+    </div>
+    
+    <div id="scanner-tab" class="tab-content active">
+        <div class="container">
+            <div class="video-container">
+                <video id="video" autoplay playsinline muted></video>
+                <canvas id="canvas-overlay"></canvas>
+            </div>
+            
+            <div class="controls">
+                <div class="section">
+                    <h3>摄像头控制</h3>
+                    <div class="button-group">
+                        <button id="start-camera">开启摄像头</button>
+                        <button id="stop-camera" disabled>停止摄像头</button>
+                        <button id="switch-camera" disabled>切换摄像头</button>
+                    </div>
+                    <div class="feature-info">
+                        状态: <span id="camera-status"><span class="status-indicator status-inactive"></span>未启动</span>
+                    </div>
+                </div>
+                
+                <div class="section">
+                    <h3>功能选择</h3>
+                    <div class="options-container">
+                        <div class="option-group">
+                            <h4>人脸识别</h4>
+                            <div class="checkbox-group">
+                                <label>
+                                    <input type="checkbox" id="face-detection" checked>
+                                    人脸检测
+                                </label>
+                                <label>
+                                    <input type="checkbox" id="face-landmarks">
+                                    面部特征点
+                                </label>
+                                <label>
+                                    <input type="checkbox" id="liveness-detection">
+                                    活体检测
+                                </label>
+                            </div>
+                            <div class="feature-info">
+                                状态: <span id="face-status"><span class="status-indicator status-inactive"></span>未启动</span>
+                            </div>
+                        </div>
+                        
+                        <div class="option-group">
+                            <h4>码扫描</h4>
+                            <div class="checkbox-group">
+                                <label>
+                                    <input type="checkbox" id="qr-scanning" checked>
+                                    二维码扫描
+                                </label>
+                                <label>
+                                    <input type="checkbox" id="barcode-scanning">
+                                    条形码扫描
+                                </label>
+                            </div>
+                            <div class="feature-info">
+                                状态: <span id="qr-status"><span class="status-indicator status-inactive"></span>未启动</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="button-group">
+                        <button id="start-features" disabled>启动选中功能</button>
+                        <button id="stop-features" disabled>停止所有功能</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="results">
+                <div class="section">
+                    <h3>人脸识别结果</h3>
+                    <pre id="face-result">等待人脸检测...</pre>
+                </div>
+                
+                <div class="section">
+                    <h3>码扫描结果</h3>
+                    <pre id="qr-result">等待扫描...</pre>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="docs-tab" class="tab-content">
+        <div class="container">
+            <div class="section" style="width: 100%;">
+                <h2>ID Scanner Library 说明</h2>
+                <p>
+                    这个演示展示了 ID Scanner Library 的核心功能，包括人脸检测、活体检测和二维码扫描。
+                    您可以同时开启多个功能，体验它们的协同工作能力。
+                </p>
+                
+                <h3>功能说明</h3>
+                <ul>
+                    <li><strong>人脸检测</strong>：识别视频流中的人脸，并提供位置信息</li>
+                    <li><strong>面部特征点</strong>：检测眼睛、鼻子、嘴巴等面部关键点</li>
+                    <li><strong>活体检测</strong>：分析是否为真人，防止照片欺骗</li>
+                    <li><strong>二维码扫描</strong>：识别QR码并解析内容</li>
+                    <li><strong>条形码扫描</strong>：识别Code 128、Code 39等条形码</li>
+                </ul>
+                
+                <h3>性能提示</h3>
+                <p>
+                    同时启用多个功能可能会增加CPU和内存占用。如果您发现性能问题，
+                    可以尝试关闭一些功能或降低视频分辨率。
+                </p>
+            </div>
+        </div>
+    </div>
+    
+    <!-- 加载库 -->
+    <script src="../dist/id-scanner-lib.js"></script>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', async () => {
+            // 获取DOM元素
+            const videoEl = document.getElementById('video');
+            const canvasEl = document.getElementById('canvas-overlay');
+            const ctx = canvasEl.getContext('2d');
+            
+            // 按钮
+            const startCameraBtn = document.getElementById('start-camera');
+            const stopCameraBtn = document.getElementById('stop-camera');
+            const switchCameraBtn = document.getElementById('switch-camera');
+            const startFeaturesBtn = document.getElementById('start-features');
+            const stopFeaturesBtn = document.getElementById('stop-features');
+            
+            // 复选框
+            const faceDetectionCb = document.getElementById('face-detection');
+            const faceLandmarksCb = document.getElementById('face-landmarks');
+            const livenessDetectionCb = document.getElementById('liveness-detection');
+            const qrScanningCb = document.getElementById('qr-scanning');
+            const barcodeScanningCb = document.getElementById('barcode-scanning');
+            
+            // 状态指示器
+            const cameraStatusEl = document.getElementById('camera-status');
+            const faceStatusEl = document.getElementById('face-status');
+            const qrStatusEl = document.getElementById('qr-status');
+            
+            // 结果显示
+            const faceResultEl = document.getElementById('face-result');
+            const qrResultEl = document.getElementById('qr-result');
+            
+            // 标签页切换
+            const tabs = document.querySelectorAll('.tab');
+            const tabContents = document.querySelectorAll('.tab-content');
+            
+            tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    tabs.forEach(t => t.classList.remove('active'));
+                    tabContents.forEach(c => c.classList.remove('active'));
+                    
+                    tab.classList.add('active');
+                    document.getElementById(`${tab.dataset.tab}-tab`).classList.add('active');
+                });
+            });
+            
+            // 模块实例
+            let cameraManager;
+            let faceModule;
+            let qrScanner;
+            
+            // 当前摄像头
+            let currentCamera = 'user'; // 'user' 或 'environment'
+            
+            // 功能状态
+            let isCameraActive = false;
+            let isFaceDetectionActive = false;
+            let isQRScanningActive = false;
+            
+            // 初始化库
+            try {
+                await IDScannerLib.IDScannerLib.initialize({
+                    debug: true
+                });
+                
+                showFaceResult('库初始化成功');
+                
+                // 获取摄像头管理器
+                cameraManager = IDScannerLib.CameraManager.getInstance();
+                
+                // 创建人脸模块
+                faceModule = new IDScannerLib.FaceModule({
+                    onFaceDetected: handleFaceDetection,
+                    onError: error => showFaceResult(`人脸模块错误: ${error.message}`, true)
+                });
+                
+                // 初始化人脸模块
+                await faceModule.initialize();
+                
+                // 创建二维码扫描器
+                qrScanner = IDScannerLib.IDScannerLib.createQRScanner({
+                    scanFrequency: 200,
+                    formats: ['qrcode']
+                });
+                
+                await qrScanner.init();
+                
+                showQRResult('所有模块初始化完成，可以开始使用');
+                
+                // 监听扫描结果
+                qrScanner.on('module:realtime:result', handleQRResult);
+            } catch (error) {
+                showFaceResult(`初始化失败: ${error.message}`, true);
+                console.error('初始化错误:', error);
+            }
+            
+            // 启动摄像头按钮事件
+            startCameraBtn.addEventListener('click', async () => {
+                try {
+                    // 初始化摄像头
+                    await cameraManager.init({
+                        facingMode: currentCamera,
+                        idealResolution: { width: 1280, height: 720 }
+                    });
+                    
+                    // 设置视频元素
+                    cameraManager.setVideoElement(videoEl);
+                    
+                    // 启动摄像头
+                    await cameraManager.start();
+                    
+                    // 更新状态
+                    isCameraActive = true;
+                    updateCameraStatus(true);
+                    
+                    // 更新按钮状态
+                    startCameraBtn.disabled = true;
+                    stopCameraBtn.disabled = false;
+                    switchCameraBtn.disabled = false;
+                    startFeaturesBtn.disabled = false;
+                    
+                    // 调整canvas大小
+                    setTimeout(() => {
+                        canvasEl.width = videoEl.videoWidth;
+                        canvasEl.height = videoEl.videoHeight;
+                    }, 500);
+                } catch (error) {
+                    showFaceResult(`启动摄像头失败: ${error.message}`, true);
+                    console.error('摄像头错误:', error);
+                }
+            });
+            
+            // 停止摄像头按钮事件
+            stopCameraBtn.addEventListener('click', () => {
+                // 先停止所有功能
+                stopAllFeatures();
+                
+                // 停止摄像头
+                cameraManager.stop();
+                
+                // 更新状态
+                isCameraActive = false;
+                updateCameraStatus(false);
+                
+                // 更新按钮状态
+                startCameraBtn.disabled = false;
+                stopCameraBtn.disabled = true;
+                switchCameraBtn.disabled = true;
+                startFeaturesBtn.disabled = true;
+                stopFeaturesBtn.disabled = true;
+                
+                // 清空画布
+                clearCanvas();
+            });
+            
+            // 切换摄像头按钮事件
+            switchCameraBtn.addEventListener('click', async () => {
+                try {
+                    // 停止当前摄像头
+                    cameraManager.stop();
+                    
+                    // 切换摄像头类型
+                    currentCamera = currentCamera === 'user' ? 'environment' : 'user';
+                    
+                    // 重新初始化摄像头
+                    await cameraManager.init({
+                        facingMode: currentCamera,
+                        idealResolution: { width: 1280, height: 720 }
+                    });
+                    
+                    // 设置视频元素
+                    cameraManager.setVideoElement(videoEl);
+                    
+                    // 启动摄像头
+                    await cameraManager.start();
+                    
+                    // 调整canvas大小
+                    setTimeout(() => {
+                        canvasEl.width = videoEl.videoWidth;
+                        canvasEl.height = videoEl.videoHeight;
+                    }, 500);
+                    
+                    // 如果功能正在运行，重新启动
+                    if (isFaceDetectionActive || isQRScanningActive) {
+                        await startSelectedFeatures();
+                    }
+                } catch (error) {
+                    showFaceResult(`切换摄像头失败: ${error.message}`, true);
+                    console.error('摄像头切换错误:', error);
+                }
+            });
+            
+            // 启动功能按钮事件
+            startFeaturesBtn.addEventListener('click', async () => {
+                if (!isCameraActive) {
+                    showFaceResult('请先启动摄像头', true);
+                    return;
+                }
+                
+                await startSelectedFeatures();
+                stopFeaturesBtn.disabled = false;
+            });
+            
+            // 停止功能按钮事件
+            stopFeaturesBtn.addEventListener('click', () => {
+                stopAllFeatures();
+                stopFeaturesBtn.disabled = true;
+            });
+            
+            // 启动选中的功能
+            async function startSelectedFeatures() {
+                // 清空结果显示
+                showFaceResult('等待人脸检测...');
+                showQRResult('等待扫描...');
+                
+                // 清空画布
+                clearCanvas();
+                
+                // 启动人脸检测
+                if (faceDetectionCb.checked) {
+                    try {
+                        await faceModule.startFaceRecognition(videoEl);
+                        isFaceDetectionActive = true;
+                        updateFaceStatus(true);
+                    } catch (error) {
+                        showFaceResult(`启动人脸检测失败: ${error.message}`, true);
+                        console.error('人脸检测错误:', error);
+                    }
+                }
+                
+                // 启动二维码扫描
+                if (qrScanningCb.checked || barcodeScanningCb.checked) {
+                    try {
+                        // 设置扫描格式
+                        const formats = [];
+                        if (qrScanningCb.checked) formats.push('qrcode');
+                        if (barcodeScanningCb.checked) {
+                            formats.push('code_128', 'code_39', 'ean_13');
+                        }
+                        
+                        // 更新扫描器配置
+                        qrScanner.updateConfig({ formats });
+                        
+                        // 启动扫描
+                        await qrScanner.startRealtime(videoEl);
+                        isQRScanningActive = true;
+                        updateQRStatus(true);
+                    } catch (error) {
+                        showQRResult(`启动扫描失败: ${error.message}`, true);
+                        console.error('扫描错误:', error);
+                    }
+                }
+            }
+            
+            // 停止所有功能
+            function stopAllFeatures() {
+                // 停止人脸检测
+                if (isFaceDetectionActive) {
+                    faceModule.stop();
+                    isFaceDetectionActive = false;
+                    updateFaceStatus(false);
+                }
+                
+                // 停止二维码扫描
+                if (isQRScanningActive) {
+                    qrScanner.stopRealtime();
+                    isQRScanningActive = false;
+                    updateQRStatus(false);
+                }
+                
+                // 清空画布
+                clearCanvas();
+            }
+            
+            // 处理人脸检测结果
+            function handleFaceDetection(faces) {
+                if (!faces || faces.length === 0) return;
+                
+                // 显示检测到的人脸数量和位置
+                const faceData = faces.map((face, index) => {
+                    return {
+                        id: index + 1,
+                        confidence: face.detection?.score?.toFixed(2) || 'N/A',
+                        position: `(${Math.round(face.boundingBox.x)}, ${Math.round(face.boundingBox.y)})`,
+                        size: `${Math.round(face.boundingBox.width)}x${Math.round(face.boundingBox.height)}`
+                    };
+                });
+                
+                showFaceResult(`检测到 ${faces.length} 个人脸:\n${formatObject(faceData)}`);
+                
+                // 绘制人脸框和特征点
+                drawFaces(faces);
+                
+                // 如果启用了活体检测，处理活体检测
+                if (livenessDetectionCb.checked && faces.length > 0) {
+                    // 处理最大的人脸
+                    let bestFace = faces[0];
+                    let maxArea = bestFace.boundingBox.width * bestFace.boundingBox.height;
+                    
+                    for (let i = 1; i < faces.length; i++) {
+                        const face = faces[i];
+                        const area = face.boundingBox.width * face.boundingBox.height;
+                        if (area > maxArea) {
+                            bestFace = face;
+                            maxArea = area;
+                        }
+                    }
+                    
+                    // 进行活体检测
+                    faceModule.detectLiveness(bestFace)
+                        .then(result => {
+                            // 在人脸框上显示活体结果
+                            drawLivenessResult(bestFace, result);
+                        })
+                        .catch(error => {
+                            console.error('活体检测失败:', error);
+                        });
+                }
+            }
+            
+            // 处理二维码扫描结果
+            function handleQRResult(event) {
+                if (!event.result) return;
+                
+                const result = event.result;
+                
+                // 显示扫描结果
+                const scanData = {
+                    content: result.content,
+                    format: formatDisplayName(result.format),
+                    timestamp: new Date().toLocaleTimeString()
+                };
+                
+                showQRResult(`扫描结果:\n${formatObject(scanData)}`);
+                
+                // 绘制扫描位置
+                drawQRPosition(result);
+                
+                // 播放提示音
+                playBeepSound();
+            }
+            
+            // 绘制人脸框和特征点
+            function drawFaces(faces) {
+                if (!faces || faces.length === 0) return;
+                
+                // 获取画布上下文
+                const ctx = canvasEl.getContext('2d');
+                
+                // 清空画布
+                ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+                
+                // 遍历所有人脸
+                faces.forEach(face => {
+                    // 绘制人脸框
+                    const { x, y, width, height } = face.boundingBox;
+                    
+                    ctx.strokeStyle = '#3498db';
+                    ctx.lineWidth = 2;
+                    ctx.strokeRect(x, y, width, height);
+                    
+                    // 如果启用了特征点检测并且有特征点数据
+                    if (faceLandmarksCb.checked && face.landmarks && face.landmarks.positions) {
+                        // 绘制特征点
+                        ctx.fillStyle = '#e74c3c';
+                        face.landmarks.positions.forEach(point => {
+                            ctx.beginPath();
+                            ctx.arc(point.x, point.y, 2, 0, 2 * Math.PI);
+                            ctx.fill();
+                        });
+                    }
+                });
+            }
+            
+            // 绘制活体检测结果
+            function drawLivenessResult(face, livenessResult) {
+                const ctx = canvasEl.getContext('2d');
+                const { x, y, width } = face.boundingBox;
+                
+                // 在人脸框上方显示活体结果
+                ctx.font = '16px Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'top';
+                
+                // 根据活体结果设置颜色
+                if (livenessResult.isLive) {
+                    ctx.fillStyle = '#2ecc71'; // 绿色
+                    ctx.fillText(`真人 ${(livenessResult.score * 100).toFixed(0)}%`, x + width / 2, y - 25);
+                } else {
+                    ctx.fillStyle = '#e74c3c'; // 红色
+                    ctx.fillText(`非真人 ${(livenessResult.score * 100).toFixed(0)}%`, x + width / 2, y - 25);
+                }
+            }
+            
+            // 绘制二维码位置
+            function drawQRPosition(result) {
+                if (!result.position) return;
+                
+                const ctx = canvasEl.getContext('2d');
+                const { topLeft, topRight, bottomLeft, bottomRight } = result.position;
+                
+                // 绘制边框
+                ctx.strokeStyle = '#2ecc71';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(topLeft.x, topLeft.y);
+                ctx.lineTo(topRight.x, topRight.y);
+                ctx.lineTo(bottomRight.x, bottomRight.y);
+                ctx.lineTo(bottomLeft.x, bottomLeft.y);
+                ctx.closePath();
+                ctx.stroke();
+                
+                // 添加半透明填充
+                ctx.fillStyle = 'rgba(46, 204, 113, 0.15)';
+                ctx.fill();
+                
+                // 显示扫描格式
+                ctx.font = '16px Arial';
+                ctx.fillStyle = '#2ecc71';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+                ctx.fillText(
+                    formatDisplayName(result.format),
+                    (topLeft.x + topRight.x + bottomLeft.x + bottomRight.x) / 4,
+                    topLeft.y - 10
+                );
+            }
+            
+            // 播放提示音
+            function playBeepSound() {
+                try {
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+                    
+                    oscillator.type = 'sine';
+                    oscillator.frequency.value = 1000;
+                    gainNode.gain.value = 0.1;
+                    
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+                    
+                    oscillator.start(0);
+                    setTimeout(() => oscillator.stop(), 100);
+                } catch (error) {
+                    console.error('播放提示音失败:', error);
+                }
+            }
+            
+            // 清空画布
+            function clearCanvas() {
+                if (canvasEl.width > 0) {
+                    const ctx = canvasEl.getContext('2d');
+                    ctx.clearRect(0, 0, canvasEl.width, canvasEl.height);
+                }
+            }
+            
+            // 更新摄像头状态
+            function updateCameraStatus(active) {
+                const statusIndicator = cameraStatusEl.querySelector('.status-indicator');
+                statusIndicator.className = `status-indicator status-${active ? 'active' : 'inactive'}`;
+                cameraStatusEl.innerHTML = statusIndicator.outerHTML + (active ? '已启动' : '未启动');
+            }
+            
+            // 更新人脸检测状态
+            function updateFaceStatus(active) {
+                const statusIndicator = faceStatusEl.querySelector('.status-indicator');
+                statusIndicator.className = `status-indicator status-${active ? 'active' : 'inactive'}`;
+                faceStatusEl.innerHTML = statusIndicator.outerHTML + (active ? '已启动' : '未启动');
+            }
+            
+            // 更新二维码扫描状态
+            function updateQRStatus(active) {
+                const statusIndicator = qrStatusEl.querySelector('.status-indicator');
+                statusIndicator.className = `status-indicator status-${active ? 'active' : 'inactive'}`;
+                qrStatusEl.innerHTML = statusIndicator.outerHTML + (active ? '已启动' : '未启动');
+            }
+            
+            // 显示人脸结果
+            function showFaceResult(message, isError = false) {
+                if (isError) {
+                    faceResultEl.innerHTML = `<span style="color: red;">${message}</span>`;
+                } else {
+                    faceResultEl.innerText = message;
+                }
+            }
+            
+            // 显示二维码结果
+            function showQRResult(message, isError = false) {
+                if (isError) {
+                    qrResultEl.innerHTML = `<span style="color: red;">${message}</span>`;
+                } else {
+                    qrResultEl.innerText = message;
+                }
+            }
+            
+            // 格式化对象为字符串
+            function formatObject(obj) {
+                if (Array.isArray(obj)) {
+                    return obj.map((item, index) => {
+                        const itemStr = Object.entries(item)
+                            .map(([key, value]) => `  ${key}: ${value}`)
+                            .join('\n  ');
+                        return `[${index + 1}]:\n  ${itemStr}`;
+                    }).join('\n\n');
+                }
+                
+                return Object.entries(obj)
+                    .map(([key, value]) => `  ${key}: ${value}`)
+                    .join('\n');
+            }
+            
+            // 格式化扫描格式名称
+            function formatDisplayName(format) {
+                const formatMap = {
+                    'qrcode': 'QR码',
+                    'code_128': 'Code 128',
+                    'code_39': 'Code 39',
+                    'ean_13': 'EAN-13'
+                };
+                
+                return formatMap[format] || format;
+            }
+        });
+    </script>
+</body>
+</html> 

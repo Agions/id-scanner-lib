@@ -6,8 +6,9 @@
     "strict": true,
     "esModuleInterop": true,
     "lib": ["dom", "es2020"],
-    "sourceMap": true
+    "sourceMap": true,
+    "downlevelIteration": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "**/*.test.ts"]
-} 
+}

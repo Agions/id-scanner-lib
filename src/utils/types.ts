@@ -70,12 +70,100 @@ export interface DetectionResult {
  * ```
  */
 export interface IDCardInfo {
+  /** 姓名 */
   name?: string;
+  /** 性别 */
   gender?: string;
-  nationality?: string;
+  /** 民族 */
+  ethnicity?: string;
+  /** 出生日期 */
   birthDate?: string;
+  /** 地址 */
   address?: string;
+  /** 身份证号码 */
   idNumber?: string;
-  issuingAuthority?: string;
+  /** 签发机关 */
+  issueAuthority?: string;
+  /** 有效期起始日期 */
+  validFrom?: string;
+  /** 有效期截止日期 */
+  validTo?: string;
+  /** 有效期限（完整文本） */
   validPeriod?: string;
+  /** 照片区域 */
+  photoRegion?: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  };
+  /** 类型 */
+  type?: string;
+  /** 置信度 */
+  confidence?: number;
+  /** 其他属性 */
+  [key: string]: any;
+}
+
+/**
+ * 点坐标
+ */
+export interface Point {
+  x: number;
+  y: number;
+}
+
+/**
+ * 矩形区域
+ */
+export interface Rect {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * 可释放资源接口
+ */
+export interface Disposable {
+  /** 释放资源 */
+  dispose(): Promise<void>;
+}
+
+/**
+ * 图像处理选项
+ */
+export interface ImageProcessingOptions {
+  /** 亮度调整 (-100 到 100) */
+  brightness?: number;
+  /** 对比度调整 (-100 到 100) */
+  contrast?: number;
+  /** 饱和度调整 (-100 到 100) */
+  saturation?: number;
+  /** 锐化强度 (0 到 10) */
+  sharpen?: number | boolean;
+  /** 高斯模糊半径 (0 到 10) */
+  blur?: number;
+  /** 是否应用灰度转换 */
+  grayscale?: boolean;
+  /** 是否应用二值化 */
+  binarize?: boolean;
+  /** 二值化阈值 (0 到 255) */
+  threshold?: number;
+  /** 是否应用边缘检测 */
+  edgeDetection?: boolean;
+  /** 是否应用降噪 */
+  denoise?: boolean;
+  /** 是否应用直方图均衡化 */
+  histogramEqualization?: boolean;
+  /** 是否应用透视校正 */
+  perspectiveCorrection?: boolean;
+  /** 透视校正点 */
+  perspectivePoints?: {
+    topLeft: Point;
+    topRight: Point;
+    bottomRight: Point;
+    bottomLeft: Point;
+  };
 } 

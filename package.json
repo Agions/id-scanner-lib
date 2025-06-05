@@ -1,95 +1,95 @@
 {
   "name": "id-scanner-lib",
   "version": "1.3.3",
-  "type": "module",
-  "main": "dist/id-scanner.js",
-  "module": "dist/id-scanner-core.esm.js",
-  "exports": {
-    ".": {
-      "import": "./dist/id-scanner-core.esm.js",
-      "require": "./dist/id-scanner.js"
-    },
-    "./core": {
-      "import": "./dist/id-scanner-core.esm.js",
-      "require": "./dist/id-scanner-core.js"
-    },
-    "./ocr": {
-      "import": "./dist/id-scanner-ocr.esm.js",
-      "require": "./dist/id-scanner-ocr.js"
-    },
-    "./qr": {
-      "import": "./dist/id-scanner-qr.esm.js",
-      "require": "./dist/id-scanner-qr.js"
-    }
-  },
+  "description": "Browser-based ID card, QR code, and face recognition scanner with liveness detection",
+  "main": "dist/id-scanner-lib.js",
+  "module": "dist/id-scanner-lib.esm.js",
   "types": "dist/types/index.d.ts",
-  "sideEffects": false,
-  "scripts": {
-    "build": "rollup -c",
-    "dev": "rollup -c -w",
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "prepublishOnly": "npm run build",
-    "publish:npm": "node scripts/publish.js",
-    "update:github": "node scripts/update-github.js",
-    "analyze": "rollup -c --environment ANALYZE:true",
-    "build:prod": "rollup -c --environment NODE_ENV:production",
-    "size": "npm run build:prod && node scripts/size-report.js",
-    "serve:demo": "npx http-server examples -o"
-  },
-  "keywords": [
-    "id-card",
-    "qr-code",
-    "scanner",
-    "ocr",
-    "barcode",
-    "identity",
-    "recognition",
-    "image-processing"
+  "files": [
+    "dist",
+    "src",
+    "LICENSE",
+    "README.md"
   ],
-  "author": "agions",
-  "license": "MIT",
-  "description": "一款纯前端实现的TypeScript身份证&二维码识别库，无需后端支持，所有处理在浏览器端完成，新增图像批处理与优化",
+  "bin": {
+    "id-scanner-scaffold": "./tools/scaffold.js"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "rimraf dist && rollup -c rollup.config.js",
+    "dev": "rollup -c -w rollup.config.js",
+    "test": "jest",
+    "lint": "eslint --ext .ts,.js src",
+    "format": "prettier --write \"src/**/*.{ts,js}\"",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:serve": "vitepress serve docs",
+    "prepare": "npm run build",
+    "scaffold": "node ./tools/scaffold.js"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/agions/id-scanner-lib.git"
   },
-  "bugs": {
-    "url": "https://github.com/agions/id-scanner-lib/issues"
-  },
-  "homepage": "https://github.com/agions/id-scanner-lib#readme",
-  "files": [
-    "dist",
-    "src",
-    "README.md",
-    "LICENSE"
+  "keywords": [
+    "id-scanner",
+    "id-card",
+    "qr-code",
+    "scanner",
+    "face-recognition",
+    "id-verification",
+    "face-detection",
+    "face-liveness",
+    "biometrics",
+    "webcam"
   ],
-  "publishConfig": {
-    "access": "public"
+  "author": "Your Name",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/yourusername/id-scanner-lib/issues"
+  },
+  "homepage": "https://github.com/yourusername/id-scanner-lib#readme",
+  "dependencies": {
+    "@tensorflow/tfjs": "^4.16.0",
+    "@vladmandic/face-api": "^1.7.13",
+    "jsqr": "^1.4.0"
   },
   "devDependencies": {
-    "@rollup/plugin-commonjs": "^28.0.3",
-    "@rollup/plugin-json": "^6.1.0",
-    "@rollup/plugin-node-resolve": "^16.0.1",
+    "@babel/core": "^7.23.7",
+    "@babel/preset-env": "^7.23.7",
+    "@babel/preset-typescript": "^7.23.7",
+    "@rollup/plugin-babel": "^6.0.4",
+    "@rollup/plugin-commonjs": "^25.0.7",
+    "@rollup/plugin-json": "^6.0.1",
+    "@rollup/plugin-node-resolve": "^15.2.3",
     "@rollup/plugin-terser": "^0.4.4",
-    "@rollup/plugin-typescript": "^12.1.2",
-    "@types/node": "^22.13.10",
-    "picocolors": "^1.1.1",
-    "rollup": "^4.35.0",
-    "rollup-plugin-bundle-analyzer": "^1.6.6",
-    "rollup-plugin-visualizer": "^5.9.2",
-    "tslib": "^2.8.1",
-    "typescript": "^5.8.2"
+    "@rollup/plugin-typescript": "^11.1.5",
+    "@types/jest": "^29.5.11",
+    "@typescript-eslint/eslint-plugin": "^6.19.1",
+    "@typescript-eslint/parser": "^6.19.1",
+    "dts-bundle-generator": "^9.2.4",
+    "eslint": "^8.56.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.1.3",
+    "jest": "^29.7.0",
+    "prettier": "^3.2.4",
+    "rimraf": "^5.0.5",
+    "rollup": "^4.9.6",
+    "rollup-plugin-copy": "^3.5.0",
+    "rollup-plugin-dts": "^6.1.0",
+    "rollup-plugin-livereload": "^2.0.5",
+    "rollup-plugin-polyfill-node": "^0.13.0",
+    "rollup-plugin-serve": "^1.1.1",
+    "rollup-plugin-typescript2": "^0.36.0",
+    "ts-jest": "^29.1.1",
+    "tslib": "^2.6.2",
+    "typedoc": "^0.25.7",
+    "typescript": "^5.3.3",
+    "vitepress": "^1.0.0-rc.25"
   },
-  "dependencies": {
-    "browser-image-compression": "^2.0.2",
-    "jsqr": "^1.4.0",
-    "lodash-es": "^4.17.21",
-    "tesseract.js": "^6.0.0"
-  },
-  "browserslist": [
-    ">0.2%",
-    "not dead",
-    "not op_mini all",
-    "last 2 versions"
-  ]
+  "engines": {
+    "node": ">=14.0.0"
+  }
 }

@@ -1,198 +1,126 @@
-import typescript from "@rollup/plugin-typescript"
-import resolve from "@rollup/plugin-node-resolve"
-import commonjs from "@rollup/plugin-commonjs"
-import terser from "@rollup/plugin-terser"
-import json from "@rollup/plugin-json"
+import resolve from '@rollup/plugin-node-resolve';
+import commonjs from '@rollup/plugin-commonjs';
+import typescript from '@rollup/plugin-typescript';
+import json from '@rollup/plugin-json';
+import terser from '@rollup/plugin-terser';
+import dts from 'rollup-plugin-dts';
+import { dts as dtsGenerator } from 'rollup-plugin-dts';
+import serve from 'rollup-plugin-serve';
+import livereload from 'rollup-plugin-livereload';
+import nodePolyfills from 'rollup-plugin-polyfill-node';
+import copy from 'rollup-plugin-copy';
+import * as path from 'path';
 
-// 优化的terser配置，更激进地压缩代码
-const terserOptions = {
-  compress: {
-    drop_console: true, // 移除console语句
-    drop_debugger: true, // 移除debugger语句
-    pure_funcs: ["console.log", "console.debug", "console.info"], // 移除指定的函数调用
-    passes: 2, // 多次压缩，可以获得更好的压缩效果
-    unsafe: true, // 启用"不安全"的压缩
-    toplevel: true, // 在顶层作用域中删除未使用的变量和函数
-  },
-  mangle: {
-    properties: {
-      regex: /^_/, // 只混淆以下划线开头的私有属性
+const pkg = require('./package.json');
+const isDev = process.env.NODE_ENV !== 'production';
+
+// 获取构建目标配置
+const getBuildTargets = () => {
+  // 设置基本构建
+  const baseBuilds = [
+    // Core & Face Module (UMD)
+    {
+      input: 'src/face-module.ts',
+      output: {
+        name: 'IDScannerLib',
+        file: pkg.main,
+        format: 'umd',
+        sourcemap: true,
+        exports: 'auto',
+        globals: {
+          '@tensorflow/tfjs': 'tf',
+          '@vladmandic/face-api': 'faceapi',
+          'jsqr': 'jsQR'
+        }
+      },
+      external: [], // 在UMD构建中需要打包所有依赖
+      plugins: [
+        // 解析Node.js模块
+        resolve({
+          browser: true,
+          preferBuiltins: false
+        }),
+        
+        // 转换CommonJS模块
+        commonjs(),
+        
+        // 支持JSON导入
+        json(),
+        
+        // 处理TypeScript
+        typescript({
+          tsconfig: './tsconfig.json',
+          declaration: true,
+          declarationDir: './dist/types'
+        }),
+        
+        // 提供Node.js模块的浏览器polyfill
+        nodePolyfills(),
+        
+        // 非开发环境时压缩代码
+        !isDev && terser()
+      ].filter(Boolean),
     },
-  },
-  format: {
-    comments: false, // 删除所有注释
-  },
-}
-
-// 基础配置
-const baseConfig = {
-  plugins: [
-    typescript({
-      tsconfig: "./tsconfig.json",
-      noEmitOnError: false, // 即使有错误也继续构建
-      // 排除类型声明文件
-      exclude: ["**/*.d.ts"],
-    }),
-    resolve({
-      browser: true, // 针对浏览器优化
-      preferBuiltins: false,
-    }),
-    commonjs(),
-    json({
-      // 仅包含必要的JSON数据
-      compact: true,
-    }),
-  ],
-}
-
-// 导出多个配置
-export default [
-  // 核心包 - 不包含OCR功能的轻量版
-  {
-    ...baseConfig,
-    input: "src/core.ts",
-    output: [
-      {
-        file: "dist/id-scanner-core.js",
-        format: "umd",
-        name: "IDScannerCore",
-        sourcemap: false, // 生产环境不需要sourcemap
+    
+    // Core & Face Module (ESM)
+    {
+      input: 'src/face-module.ts',
+      output: {
+        file: pkg.module,
+        format: 'es',
+        sourcemap: true,
+        exports: 'named'
       },
-      {
-        file: "dist/id-scanner-core.min.js",
-        format: "umd",
-        name: "IDScannerCore",
-        plugins: [terser(terserOptions)],
-        sourcemap: false,
-      },
-      {
-        file: "dist/id-scanner-core.esm.js",
-        format: "es",
-        sourcemap: false,
-      },
-    ],
-    // 优化chunking
-    treeshake: {
-      moduleSideEffects: false,
-      propertyReadSideEffects: false,
-      tryCatchDeoptimization: false,
+      external: [
+        '@tensorflow/tfjs',
+        '@vladmandic/face-api',
+        'jsqr'
+      ],
+      plugins: [
+        resolve({
+          browser: true
+        }),
+        commonjs(),
+        json(),
+        typescript({
+          tsconfig: './tsconfig.json',
+          declaration: false
+        }),
+        !isDev && terser()
+      ].filter(Boolean),
     },
-  },
+    
+    // 类型声明文件
+    {
+      input: './dist/types/face-module.d.ts',
+      output: [{ file: 'dist/types/index.d.ts', format: 'es' }],
+      plugins: [
+        dts(),
+        // 复制dist文件夹中的类型声明文件
+        copy({
+          targets: [
+            { src: 'dist/types/face-module.d.ts', dest: 'dist/types/' }
+          ]
+        })
+      ]
+    }
+  ];
+  
+  // 开发环境添加服务器配置
+  if (isDev) {
+    baseBuilds[0].plugins.push(
+      serve({
+        open: true,
+        contentBase: ['dist', 'examples'],
+        port: 3000
+      }),
+      livereload({
+        watch: ['dist', 'examples']
+      })
+    );
+  }
+  
+  return baseBuilds;
+};
 
-  // OCR模块
-  {
-    ...baseConfig,
-    input: "src/ocr-module.ts",
-    output: [
-      {
-        file: "dist/id-scanner-ocr.js",
-        format: "umd",
-        name: "IDScannerOCR",
-        sourcemap: false,
-        globals: {
-          "tesseract.js": "Tesseract",
-        },
-      },
-      {
-        file: "dist/id-scanner-ocr.min.js",
-        format: "umd",
-        name: "IDScannerOCR",
-        plugins: [terser(terserOptions)],
-        sourcemap: false,
-        globals: {
-          "tesseract.js": "Tesseract",
-        },
-      },
-      {
-        file: "dist/id-scanner-ocr.esm.js",
-        format: "es",
-        sourcemap: false,
-      },
-    ],
-    external: ["tesseract.js"],
-    treeshake: {
-      moduleSideEffects: false,
-      propertyReadSideEffects: false,
-      tryCatchDeoptimization: false,
-    },
-  },
-
-  // 二维码扫描模块
-  {
-    ...baseConfig,
-    input: "src/qr-module.ts",
-    output: [
-      {
-        file: "dist/id-scanner-qr.js",
-        format: "umd",
-        name: "IDScannerQR",
-        sourcemap: false,
-        globals: {
-          jsqr: "jsQR",
-        },
-      },
-      {
-        file: "dist/id-scanner-qr.min.js",
-        format: "umd",
-        name: "IDScannerQR",
-        plugins: [terser(terserOptions)],
-        sourcemap: false,
-        globals: {
-          jsqr: "jsQR",
-        },
-      },
-      {
-        file: "dist/id-scanner-qr.esm.js",
-        format: "es",
-        sourcemap: false,
-      },
-    ],
-    external: ["jsqr"],
-    treeshake: {
-      moduleSideEffects: false,
-      propertyReadSideEffects: false,
-      tryCatchDeoptimization: false,
-    },
-  },
-
-  // 只构建 UMD 版本，ESM 版本通过单独的命令生成
-  {
-    ...baseConfig,
-    input: "src/index-umd.ts",
-    output: [
-      {
-        file: "dist/id-scanner.js",
-        format: "umd",
-        name: "IDScanner",
-        exports: "auto", // 自动处理导出
-        sourcemap: false,
-        globals: {
-          jsqr: "jsQR",
-          "tesseract.js": "Tesseract",
-        },
-        // 防止代码分割
-        inlineDynamicImports: true,
-      },
-      {
-        file: "dist/id-scanner.min.js",
-        format: "umd",
-        name: "IDScanner",
-        exports: "auto", // 自动处理导出
-        plugins: [terser(terserOptions)],
-        sourcemap: false,
-        globals: {
-          jsqr: "jsQR",
-          "tesseract.js": "Tesseract",
-        },
-        // 防止代码分割
-        inlineDynamicImports: true,
-      },
-    ],
-    external: ["jsqr", "tesseract.js"],
-    treeshake: {
-      moduleSideEffects: false,
-      propertyReadSideEffects: false,
-      tryCatchDeoptimization: false,
-    },
-  },
-]
+export default getBuildTargets();

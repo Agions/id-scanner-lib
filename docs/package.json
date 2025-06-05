@@ -1,0 +1,22 @@
+{
+  "name": "id-scanner-lib-docs",
+  "version": "1.0.0",
+  "description": "ID-Scanner-Lib 文档网站",
+  "type": "module",
+  "main": "index.js",
+  "author": "Agions",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vitepress dev .",
+    "build": "vitepress build .",
+    "preview": "vitepress preview ."
+  },
+  "devDependencies": {
+    "@vitejs/plugin-vue": "^5.2.4",
+    "markdown-it": "^13.0.2",
+    "markdown-it-anchor": "^8.6.7",
+    "shiki": "^0.14.5",
+    "vitepress": "^1.0.0",
+    "vue": "^3.3.8"
+  }
+}
