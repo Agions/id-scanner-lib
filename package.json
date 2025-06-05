@@ -1,6 +1,6 @@
 {
   "name": "id-scanner-lib",
-  "version": "1.3.3",
+  "version": "1.5.0",
   "description": "Browser-based ID card, QR code, and face recognition scanner with liveness detection",
   "main": "dist/id-scanner-lib.js",
   "module": "dist/id-scanner-lib.esm.js",
