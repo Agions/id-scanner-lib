@@ -58,7 +58,7 @@ export interface QRCodeResult {
   data: string;
   
   /** 条码格式 */
-  format: BarcodeFormat;
+  barcodeFormat: BarcodeFormat;
   
   /** 条码类型 (兼容旧版) */
   type?: string;

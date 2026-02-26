@@ -6,7 +6,7 @@
 
 import { EventEmitter } from '../../core/event-emitter';
 import { Logger } from '../../core/logger';
-import { QRCodeResult } from './types';
+import { QRCodeResult, BarcodeFormat } from './types';
 import jsQR from 'jsqr';
 
 /**
@@ -112,6 +112,7 @@ export class QRCodeScanner extends EventEmitter {
     // 构建结果
     const result: QRCodeResult = {
       data: code.data,
+      barcodeFormat: BarcodeFormat.QR_CODE,
       boundingBox: {
         topLeft: code.location.topLeftCorner,
         topRight: code.location.topRightCorner,

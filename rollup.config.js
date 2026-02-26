@@ -3,7 +3,6 @@ import commonjs from '@rollup/plugin-commonjs';
 import typescript from 'rollup-plugin-typescript2';
 import json from '@rollup/plugin-json';
 import terser from '@rollup/plugin-terser';
-import dts from 'rollup-plugin-dts';
 import copy from 'rollup-plugin-copy';
 import nodePolyfills from 'rollup-plugin-polyfill-node';
 import * as path from 'path';
@@ -14,7 +13,7 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
 const isDev = process.env.NODE_ENV !== 'production';
 
-// 获取构建目标配置
+// Get build targets
 const getBuildTargets = () => {
   const baseBuilds = [
     // UMD Build
@@ -43,7 +42,12 @@ const getBuildTargets = () => {
           declarationDir: './dist/types'
         }),
         nodePolyfills(),
-        !isDev && terser()
+        !isDev && terser(),
+        copy({
+          targets: [
+            { src: 'src/types/*.d.ts', dest: 'dist/types' }
+          ]
+        })
       ].filter(Boolean),
     },
     
@@ -67,13 +71,6 @@ const getBuildTargets = () => {
         }),
         !isDev && terser()
       ].filter(Boolean),
-    },
-    
-    // TypeScript declarations
-    {
-      input: './dist/types/index.d.ts',
-      output: [{ file: 'dist/types/index.d.ts', format: 'es' }],
-      plugins: [dts()]
     }
   ];
   
