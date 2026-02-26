@@ -1,93 +1,56 @@
 # ID Scanner Lib 优化方案
 
-## 一、性能优化
+## 优化进度
 
-### 1.1 模型懒加载 ✅ (已完成)
-- 实现按需加载模型,只在需要时才加载
-- 减少首屏加载时间
-- 节省内存占用
-
-### 1.2 内存管理 ✅ (已完成)
-- 优化 CameraManager 资源释放
-- 正确释放 Canvas、Video、MediaStream
-
-### 1.3 图片处理优化
-- [ ] 使用 Web Worker 处理图片
-
----
-
-## 二、代码重构
-
-### 2.1 统一错误处理 ✅ (已完成)
-- 添加 ErrorHandler 工具类
-- 统一的错误记录方式
-
-### 2.2 代码规范
-- [x] 部分 console.log 清理
-
----
-
-## 三、功能增强
-
-### 3.1 加载状态管理 ✅ (已完成)
-- 添加 LoadingStateManager
-- 支持加载进度回调
-
-### 3.2 支持更多二维码格式
-- [ ] DataMatrix
-- [ ] PDF417
-
-### 3.3 离线支持
-- [ ] Service Worker 缓存模型
-
----
-
-## 四、用户体验
-
-### 4.1 添加加载状态 ✅ (已完成)
-- LoadingStateManager 支持进度回调
-
-### 4.2 错误提示优化
-- [ ] 友好的错误信息
-- [ ] 提供解决方案
-
----
-
-## 五、已完成
-
-- [x] 修复构建问题 (Rollup ESM/CommonJS)
+- [x] 构建问题修复
 - [x] TypeScript 类型错误修复
-- [x] 模型懒加载功能
+- [x] 模型懒加载
 - [x] 内存优化
 - [x] 统一错误处理
 - [x] 加载状态管理
+- [x] 重试工具
+- [x] 异步缓存
+- [x] 信号量
+- [x] 通用类型
 
 ---
 
-## 六、新增 API
+## 新增 API
 
-### LoadingStateManager
+### 1. Retry 工具
 ```typescript
-import { LoadingStateManager, LoadingState } from 'id-scanner-lib';
+import { withRetry, createRetryable, AsyncCache, Semaphore } from 'id-scanner-lib';
 
-const manager = new LoadingStateManager();
-manager.on('progress', (progress) => {
-  console.log(`加载进度: ${progress.progress}%`);
-});
-manager.on('stateChange', (state) => {
-  if (state.state === LoadingState.READY) {
-    console.log('加载完成!');
-  }
-});
+// 带重试的函数调用
+const result = await withRetry(async () => {
+  return await riskyOperation();
+}, { maxAttempts: 3, initialDelay: 1000 });
+
+// 异步缓存
+const cache = new AsyncCache<string>(5 * 60 * 1000); // 5分钟 TTL
+const data = await cache.getOrSet('key', () => fetchData());
+
+// 信号量 (控制并发)
+const semaphore = new Semaphore(3); // 最多3个并发
+await semaphore.acquire();
+try {
+  // 执行操作
+} finally {
+  semaphore.release();
+}
 ```
 
-### ErrorHandler
+### 2. 通用类型
 ```typescript
-import { ErrorHandler } from 'id-scanner-lib';
+import { ModuleState, ImageSource, Rectangle, Point } from 'id-scanner-lib';
+```
 
-try {
-  await someOperation();
-} catch (error) {
-  ErrorHandler.handle('ModuleName', '操作失败', error);
-}
+---
+
+## 提交记录
+
+```
+d794105 feat: 添加重试工具和通用类型
+0e14cde feat: 添加内存优化和加载状态管理
+18459d8 feat: 优化构建和添加模型懒加载
 ```

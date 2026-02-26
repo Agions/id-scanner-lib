@@ -1,16 +1,22 @@
-# ID Scanner lib
+# ID Scanner Lib
+
+[English](./README_EN.md) | [中文](./README.md)
 
 一个功能强大的浏览器端身份验证和人脸识别库，支持人脸检测、人脸比对、活体检测和二维码扫描。
 
+![Version](https://img.shields.io/npm/v/id-scanner-lib)
+![License](https://img.shields.io/npm/l/id-scanner-lib)
+![Size](https://img.shields.io/bundlephobia/min/id-scanner-lib)
+
 ## 特性
 
-- **模块化架构**：核心组件独立封装，便于扩展和维护
-- **人脸检测**：快速准确的人脸定位和属性分析
-- **人脸比对**：高精度的人脸相似度比对
-- **活体检测**：支持被动式和主动式活体验证，防止照片、视频欺骗
-- **二维码扫描**：支持QR码和多种条形码格式
-- **轻量级**：优化的模型加载策略，按需加载
-- **跨平台**：支持所有主流浏览器和设备
+- 🚀 **模块化架构** - 核心组件独立封装，便于扩展和维护
+- 👤 **人脸检测** - 快速准确的人脸定位和属性分析
+- 🔍 **人脸比对** - 高精度的人脸相似度比对
+- 🛡️ **活体检测** - 支持被动式和主动式活体验证，防止照片、视频欺骗
+- 📱 **二维码扫描** - 支持QR码和多种条形码格式
+- ⚡ **轻量级** - 优化的模型加载策略，按需加载
+- 🌐 **跨平台** - 支持所有主流浏览器和设备
 
 ## 安装
 
@@ -23,18 +29,24 @@ npm install id-scanner-lib
 ### CDN
 
 ```html
+<!-- UMD -->
 <script src="https://cdn.jsdelivr.net/npm/id-scanner-lib/dist/id-scanner-lib.min.js"></script>
+
+<!-- ESM -->
+<script type="module">
+  import IDScannerLib from 'https://cdn.jsdelivr.net/npm/id-scanner-lib/dist/id-scanner-lib.esm.js';
+</script>
 ```
 
 ## 快速开始
 
-### 基本使用
+### 基础使用
 
-```javascript
-import { IDScannerLib, FaceModule } from 'id-scanner-lib';
+```typescript
+import { IDScanner, FaceModule } from 'id-scanner-lib';
 
 // 初始化库
-await IDScannerLib.initialize({
+await IDScanner.initialize({
   debug: true
 });
 
@@ -54,7 +66,7 @@ await faceModule.startFaceRecognition(videoElement);
 
 ### 人脸比对
 
-```javascript
+```typescript
 // 比对两张人脸图片
 const result = await faceModule.compareFaces(image1, image2);
 
@@ -64,7 +76,7 @@ console.log(`是否匹配: ${result.isMatch}`);
 
 ### 活体检测
 
-```javascript
+```typescript
 // 被动式活体检测
 const result = await faceModule.detectLiveness(image, {
   type: LivenessDetectionType.PASSIVE,
@@ -78,9 +90,9 @@ console.log(`置信度: ${result.score}`);
 
 ### 二维码扫描
 
-```javascript
+```typescript
 // 创建二维码扫描器
-const qrScanner = IDScannerLib.createQRScanner({
+const qrScanner = IDScanner.createQRScanner({
   scanFrequency: 200,
   formats: ['qrcode', 'code_128', 'code_39', 'ean_13']
 });
@@ -97,92 +109,120 @@ qrScanner.on('module:realtime:result', (event) => {
 });
 ```
 
-## 项目结构
+## API 文档
 
+### 核心类
+
+| 类 | 说明 |
+|---|---|
+| `IDScanner` | 主入口类，管理所有模块 |
+| `FaceModule` | 人脸检测、比对、活体检测模块 |
+| `IDCardModule` | 身份证识别模块 |
+| `QRCodeModule` | 二维码扫描模块 |
+
+### 工具函数
+
+| 函数 | 说明 |
+|---|---|
+| `withRetry()` | 带重试的异步函数包装器 |
+| `AsyncCache` | 异步缓存类 |
+| `Semaphore` | 信号量，并发控制 |
+| `ErrorHandler` | 统一错误处理 |
+| `LoadingStateManager` | 加载状态管理 |
+
+### 类型定义
+
+```typescript
+import type {
+  ImageSource,
+  Rectangle,
+  Point,
+  ModuleState,
+  BaseResult
+} from 'id-scanner-lib';
 ```
-/src
-  /core              - 核心组件
-    errors.ts        - 错误处理系统
-    event-emitter.ts - 事件发布订阅系统
-    result.ts        - 统一结果处理
-    config.ts        - 配置管理器
-    logger.ts        - 日志系统
-    resource-manager.ts - 资源管理器
-    camera-manager.ts   - 摄像头管理器
-    scanner-factory.ts  - 扫描器工厂
-  /interfaces        - 接口定义
-    scanner-module.ts  - 扫描模块接口
-    face-detection.ts  - 人脸检测接口
-    external-types.ts  - 外部类型定义
-  /modules           - 功能模块
-    /face              - 人脸相关模块
-      face-detector.ts   - 人脸检测器
-      liveness-detector.ts - 活体检测器
-    /qr                - 二维码相关模块
-      qr-scanner.ts      - 二维码扫描器
-  /utils             - 工具函数
-  index.ts           - 主入口
-  face-module.ts     - 人脸模块
-  version.ts         - 版本信息
-/examples            - 示例代码
-  face-detection-demo.html - 人脸检测演示
-  liveness-detection-demo.html - 活体检测演示
-  qr-scanner-demo.html - 二维码扫描演示
-  combined-demo.html - 综合功能演示
-/docs               - 文档
-  API.md            - API文档
-```
-
-## 演示示例
-
-项目包含多个演示示例，位于 `examples` 目录下：
-
-- **人脸检测演示** (`face-detection-demo.html`): 展示基本的人脸检测功能
-- **活体检测演示** (`liveness-detection-demo.html`): 展示活体检测功能
-- **二维码扫描演示** (`qr-scanner-demo.html`): 展示二维码和条形码扫描功能
-- **综合功能演示** (`combined-demo.html`): 展示多功能同时使用的场景
-
-运行示例：
-
-```bash
-# 安装依赖
-npm install
-
-# 构建库
-npm run build
-
-# 启动开发服务器
-npm run dev
-```
-
-然后在浏览器中访问 `http://localhost:8080/examples/`
-
-## API文档
-
-详细的API文档可在 [docs/API.md](docs/API.md) 中找到。
-
-## 浏览器兼容性
-
-- Chrome 60+
-- Firefox 60+
-- Safari 12+
-- Edge 79+
 
 ## 性能优化
 
-为了获得最佳性能，请考虑以下建议：
+### 模型懒加载
 
-1. **选择合适的模型**：对于移动设备，可使用轻量级模型
-2. **按需初始化**：只初始化需要使用的模块
-3. **资源释放**：不使用时调用dispose()方法释放资源
-4. **设置合理的扫描频率**：根据设备性能调整scanFrequency
-5. **减少同时检测的人脸数**：通过maxFaces限制
-6. **仅加载需要的特性**：如不需要表情识别，将withAttributes设为false
+默认只加载必要的模型，按需加载其他模型：
 
-## 贡献
+```typescript
+const faceModule = new FaceModule({
+  // 只加载检测模型，不加载表情、年龄等模型
+  extractEmbeddings: false,
+  detectExpressions: false,
+  detectAgeGender: false
+});
+```
 
-欢迎贡献代码、报告问题或提出改进建议。请先fork项目，然后提交拉取请求。
+### 内存管理
+
+使用完成后务必释放资源：
+
+```typescript
+// 释放模块
+await faceModule.dispose();
+
+// 释放整个库
+await scanner.dispose();
+```
+
+## 浏览器兼容性
+
+| 浏览器 | 最低版本 |
+|--------|---------|
+| Chrome | 80+ |
+| Firefox | 75+ |
+| Safari | 14+ |
+| Edge | 80+ |
+
+## 项目结构
+
+```
+src/
+├── core/              # 核心功能
+│   ├── camera-manager.ts    # 摄像头管理
+│   ├── config.ts           # 配置管理
+│   ├── logger.ts           # 日志系统
+│   └── loading-state.ts    # 加载状态
+├── modules/           # 功能模块
+│   ├── face/         # 人脸模块
+│   ├── id-card/      # 身份证模块
+│   └── qrcode/       # 二维码模块
+├── utils/            # 工具函数
+│   ├── retry.ts      # 重试机制
+│   └── error-handler.ts # 错误处理
+└── types/            # 类型定义
+```
+
+## 常见问题
+
+### Q: 模型加载失败怎么办？
+
+A: 检查网络连接，或使用本地模型：
+
+```typescript
+const faceModule = new FaceModule({
+  modelPath: '/local/models'
+});
+```
+
+### Q: 如何处理权限问题？
+
+A: 确保页面在 HTTPS 环境下运行，并获取用户授权：
+
+```typescript
+const stream = await navigator.mediaDevices.getUserMedia({
+  video: { facingMode: 'user' }
+});
+```
 
 ## 许可证
 
-MIT
+MIT License
+
+## 更新日志
+
+See [CHANGELOG](./CHANGELOG.md)
