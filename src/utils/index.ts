@@ -5,6 +5,7 @@
  */
 
 export * from './error-handler';
+export * from './retry';
 
 /**
  * 创建延迟Promise
