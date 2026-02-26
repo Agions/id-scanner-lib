@@ -671,13 +671,28 @@ export class CameraManager extends EventEmitter {
   dispose(): void {
     this.stop();
     
+    // 停止并释放媒体流
+    this.stopMediaStream();
+    
     if (this.canvas) {
+      // 清空 canvas 内容
+      const ctx = this.canvas.getContext('2d');
+      if (ctx) ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+      this.canvas.width = 0;
+      this.canvas.height = 0;
       this.canvas = null;
       this.canvasCtx = null;
     }
     
-    this.videoElement = null;
+    // 释放 video 元素
+    if (this.videoElement) {
+      this.videoElement.srcObject = null;
+      this.videoElement.load();
+      this.videoElement = null;
+    }
+    
     this.status = CameraStatus.NOT_INITIALIZED;
+    this.logger.debug('CameraManager', 'Camera resources disposed');
   }
   
   /**

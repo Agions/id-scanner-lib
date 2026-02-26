@@ -4,6 +4,8 @@
  * @module utils
  */
 
+export * from './error-handler';
+
 /**
  * 创建延迟Promise
  * @param ms 延迟毫秒数
