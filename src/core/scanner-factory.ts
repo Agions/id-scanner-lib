@@ -101,10 +101,7 @@ export class ScannerFactory extends EventEmitter {
       }
       
       // 记录初始化日志
-      this.logger.info('ScannerFactory', 'Initializing ID Scanner Library', {
-        version: '1.4.0',
-        debug: this.config.get('debug', false)
-      });
+      this.logger.info('ScannerFactory', `Initializing ID Scanner Library v1.4.0, debug: ${this.config.get('debug', false)}`);
       
       // 如果启用了自动初始化模块，则加载相应模块
       if (autoInitModules) {
@@ -122,7 +119,7 @@ export class ScannerFactory extends EventEmitter {
       this.initializing = false;
       
       const errorMessage = error instanceof Error ? error.message : String(error);
-      this.logger.error('ScannerFactory', `Initialization failed: ${errorMessage}`, error);
+      this.logger.error('ScannerFactory', `Initialization failed: ${errorMessage}`, error instanceof Error ? error : undefined);
       
       this.emit('initialized', { success: false, error });
       

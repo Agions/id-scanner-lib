@@ -112,7 +112,7 @@ export class ModuleManager extends EventEmitter {
         this.emit('module:initialized', { name });
         this.logger.debug('ModuleManager', `模块 ${name} 初始化完成`);
       } catch (error) {
-        this.logger.error('ModuleManager', `模块 ${name} 初始化失败`, error);
+        this.logger.error('ModuleManager', `模块 ${name} 初始化失败`, error instanceof Error ? error : undefined);
         this.emit('module:error', { name, error });
         throw new Error(`模块 ${name} 初始化失败: ${error instanceof Error ? error.message : String(error)}`);
       }
@@ -135,7 +135,7 @@ export class ModuleManager extends EventEmitter {
         await module.dispose();
         this.emit('module:disposed', { name });
       } catch (error) {
-        this.logger.error('ModuleManager', `模块 ${name} 资源释放失败`, error);
+        this.logger.error('ModuleManager', `模块 ${name} 资源释放失败`, error instanceof Error ? error : undefined);
         this.emit('module:error', { name, error });
       }
     }

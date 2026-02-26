@@ -254,6 +254,43 @@ export class ConfigManager {
       }
     }
   }
+
+  /**
+   * 检查模块是否启用
+   * @param moduleName 模块名称
+   */
+  public isModuleEnabled(moduleName: string): boolean {
+    const key = `modules.${moduleName}.enabled`;
+    return this.get(key) ?? false;
+  }
+}
+
+/**
+ * 全局配置接口
+ */
+export interface GlobalConfig {
+  /** 版本号 */
+  version: string;
+  /** 调试模式 */
+  debug: boolean;
+  /** 日志级别 */
+  logLevel: string;
+  /** 摄像头配置 */
+  camera: {
+    resolution: { width: number; height: number };
+    frameRate: number;
+    facingMode: string;
+  };
+  /** 性能配置 */
+  performance: {
+    useCache: boolean;
+  };
+  /** 模块配置 */
+  modules: {
+    face: { enabled: boolean };
+    idcard: { enabled: boolean };
+    qrcode: { enabled: boolean };
+  };
 } 
 
 /**

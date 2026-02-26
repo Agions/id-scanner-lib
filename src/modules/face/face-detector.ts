@@ -92,6 +92,7 @@ export class FaceDetector extends BaseScannerModule {
   
   /** 模型加载状态 */
   private modelsLoaded: boolean = false;
+  private loadedModels: Set<string> = new Set();
   
   /** 处理计时器ID */
   private processingTimerId: number | null = null;
@@ -236,59 +237,97 @@ export class FaceDetector extends BaseScannerModule {
   }
   
   /**
-   * 加载人脸检测模型
+   * 懒加载模型 - 仅在需要时加载特定模型
+   * @param modelType 模型类型
+   * @param modelPath 模型路径
+   */
+  private async lazyLoadModel(modelType: string, modelPath: string): Promise<void> {
+    // 检查模型是否已加载
+    const loadedModels = this.loadedModels || new Set();
+    if (loadedModels.has(modelType)) {
+      return;
+    }
+
+    this.logger.info('FaceDetector', `懒加载模型: ${modelType}`);
+
+    try {
+      switch (modelType) {
+        case 'ssdMobilenetv1':
+          await faceapi.nets.ssdMobilenetv1.loadFromUri(modelPath);
+          break;
+        case 'tinyFaceDetector':
+          await faceapi.nets.tinyFaceDetector.loadFromUri(modelPath);
+          break;
+        case 'faceLandmark68Net':
+          await faceapi.nets.faceLandmark68Net.loadFromUri(modelPath);
+          break;
+        case 'faceLandmark68TinyNet':
+          await faceapi.nets.faceLandmark68TinyNet.loadFromUri(modelPath);
+          break;
+        case 'faceExpressionNet':
+          await faceapi.nets.faceExpressionNet.loadFromUri(modelPath);
+          break;
+        case 'ageGenderNet':
+          await faceapi.nets.ageGenderNet.loadFromUri(modelPath);
+          break;
+        case 'faceRecognitionNet':
+          await faceapi.nets.faceRecognitionNet.loadFromUri(modelPath);
+          break;
+        default:
+          this.logger.warn('FaceDetector', `未知模型类型: ${modelType}`);
+          return;
+      }
+
+      loadedModels.add(modelType);
+      this.loadedModels = loadedModels;
+      this.logger.info('FaceDetector', `模型加载完成: ${modelType}`);
+    } catch (error) {
+      this.logger.error('FaceDetector', `模型加载失败: ${modelType}`, error instanceof Error ? error : undefined);
+      throw new ResourceLoadError(modelType, `模型加载失败: ${error}`);
+    }
+  }
+
+  /**
+   * 根据需求加载模型
+   * @param options 检测选项
+   * @param modelPath 模型路径
+   */
+  private async loadModelsOnDemand(options: FaceDetectionOptions, modelPath: string): Promise<void> {
+    // 基础检测模型
+    await this.lazyLoadModel(this.config.detectionModel, modelPath);
+
+    // 关键点模型
+    if (options.withLandmarks || this.config.detectLandmarks) {
+      await this.lazyLoadModel(
+        this.config.landmarksModel === '68_points' ? 'faceLandmark68Net' : 'faceLandmark68TinyNet',
+        modelPath
+      );
+    }
+
+    // 表情模型
+    if (options.withExpressions || this.config.detectExpressions) {
+      await this.lazyLoadModel('faceExpressionNet', modelPath);
+    }
+
+    // 年龄性别模型
+    if (options.withAgeAndGender || this.config.detectAgeGender) {
+      await this.lazyLoadModel('ageGenderNet', modelPath);
+    }
+
+    // 人脸识别模型
+    if (options.withEmbedding || this.config.extractEmbeddings) {
+      await this.lazyLoadModel('faceRecognitionNet', modelPath);
+    }
+
+    this.modelsLoaded = true;
+  }
+
+  /**
+   * 加载人脸检测模型 (旧版 - 保留兼容性)
    * @param modelPath 模型路径
    */
   private async loadModels(modelPath: string): Promise<void> {
-    try {
-      // 设置模型路径
-      faceapi.nets.ssdMobilenetv1.isLoaded && faceapi.nets.ssdMobilenetv1.dispose();
-      
-      // 根据配置加载检测模型
-      switch (this.config.detectionModel) {
-        case FaceModelType.SSD_MOBILENET:
-          await faceapi.nets.ssdMobilenetv1.loadFromUri(modelPath);
-          break;
-        case FaceModelType.TINY_FACE:
-          await faceapi.nets.tinyFaceDetector.loadFromUri(modelPath);
-          break;
-        case FaceModelType.MTCNN:
-          await faceapi.nets.mtcnn.loadFromUri(modelPath);
-          break;
-        default:
-          await faceapi.nets.ssdMobilenetv1.loadFromUri(modelPath);
-      }
-      
-      // 加载关键点检测模型
-      if (this.config.detectLandmarks) {
-        if (this.config.landmarksModel === '68_points') {
-          await faceapi.nets.faceLandmark68Net.loadFromUri(modelPath);
-        } else {
-          await faceapi.nets.faceLandmark68TinyNet.loadFromUri(modelPath);
-        }
-      }
-      
-      // 加载表情识别模型
-      if (this.config.detectExpressions) {
-        await faceapi.nets.faceExpressionNet.loadFromUri(modelPath);
-      }
-      
-      // 加载年龄性别识别模型
-      if (this.config.detectAgeGender) {
-        await faceapi.nets.ageGenderNet.loadFromUri(modelPath);
-      }
-      
-      // 加载人脸识别模型
-      if (this.config.extractEmbeddings) {
-        await faceapi.nets.faceRecognitionNet.loadFromUri(modelPath);
-      }
-      
-      this.modelsLoaded = true;
-      this.logger.info('FaceDetector', '所有人脸检测模型加载完成');
-    } catch (error) {
-      this.logger.error('FaceDetector', `模型加载失败: ${error}`);
-      throw new ResourceLoadError('face-api-models', `模型加载失败: ${error}`);
-    }
+    await this.loadModelsOnDemand({}, modelPath);
   }
   
   /**
@@ -308,8 +347,12 @@ export class FaceDetector extends BaseScannerModule {
     
     this.setStatus(ModuleStatus.PROCESSING);
     this.emit(ModuleEvent.PROCESS_START);
-    
+
     try {
+      // 懒加载所需的模型
+      const modelPath = this.config.modelPath || '/models';
+      await this.loadModelsOnDemand(options, modelPath);
+      
       // 合并选项和配置
       const processOptions: FaceDetectionOptions = {
         minConfidence: this.config.minConfidence,
