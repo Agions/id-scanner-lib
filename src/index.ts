@@ -147,6 +147,7 @@ export class IDScanner {
 }
 
 // 导出核心模块
+export * from './core/loading-state';
 export * from './core/module-manager';
 export * from './core/logger';
 export * from './core/errors';
@@ -159,7 +160,7 @@ export { FaceModule } from './modules/face';
 // 导出类型
 export * from './utils/types';
 export { IDCardModuleOptions, IDCardInfo, IDCardType, IDCardVerificationResult } from './modules/id-card/types';
-export { QRCodeModuleOptions, QRCodeResult } from './modules/qrcode/types';
+export { QRCodeModuleOptions, QRCodeResult, BarcodeFormat, DEFAULT_FORMATS } from './modules/qrcode/types';
 export { FaceModuleOptions, FaceDetectionResult, FaceComparisonResult } from './modules/face/types';
 
 // 默认导出IDScanner类
