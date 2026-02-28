@@ -13,68 +13,73 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, 'package.json'), 'utf8'));
 const isDev = process.env.NODE_ENV !== 'production';
 
-// Get build targets
-const getBuildTargets = () => {
-  const baseBuilds = [
-    // UMD Build
-    {
-      input: 'src/index.ts',
-      output: {
-        name: 'IDScannerLib',
-        file: pkg.main,
-        format: 'umd',
-        sourcemap: true,
-        exports: 'auto',
-        globals: {
-          '@tensorflow/tfjs': 'tf',
-          '@vladmandic/face-api': 'faceapi',
-          'jsqr': 'jsQR'
-        }
-      },
-      external: [],
-      plugins: [
-        resolve({ browser: true, preferBuiltins: false }),
-        commonjs(),
-        json(),
-        typescript({
-          tsconfig: './tsconfig.json',
-          declaration: true,
-          declarationDir: './dist/types'
-        }),
-        nodePolyfills(),
-        !isDev && terser(),
-        copy({
-          targets: [
-            { src: 'src/types/*.d.ts', dest: 'dist/types' }
-          ]
-        })
-      ].filter(Boolean),
+// Build configurations
+const configs = [
+  // UMD Build
+  {
+    input: 'src/index.ts',
+    output: {
+      name: 'IDScannerLib',
+      file: pkg.main,
+      format: 'umd',
+      sourcemap: true,
+      exports: 'named',
+      globals: {
+        '@tensorflow/tfjs': 'tf',
+        '@vladmandic/face-api': 'faceapi',
+        'jsqr': 'jsQR'
+      }
     },
-    
-    // ESM Build
-    {
-      input: 'src/index.ts',
-      output: {
-        file: pkg.module,
-        format: 'es',
-        sourcemap: true,
-        exports: 'named'
-      },
-      external: ['@tensorflow/tfjs', '@vladmandic/face-api', 'jsqr'],
-      plugins: [
-        resolve({ browser: true }),
-        commonjs(),
-        json(),
-        typescript({
-          tsconfig: './tsconfig.json',
-          declaration: false
-        }),
-        !isDev && terser()
-      ].filter(Boolean),
-    }
-  ];
+    external: [],
+    plugins: [
+      resolve({ browser: true, preferBuiltins: false }),
+      commonjs(),
+      json(),
+      typescript({
+        tsconfig: './tsconfig.json',
+        declaration: true,
+        declarationDir: './dist/types'
+      }),
+      nodePolyfills(),
+      !isDev && terser({
+        compress: {
+          drop_console: true,
+          passes: 2
+        }
+      }),
+      copy({
+        targets: [
+          { src: 'src/types/*.d.ts', dest: 'dist/types' }
+        ]
+      })
+    ].filter(Boolean),
+  },
   
-  return baseBuilds;
-};
+  // ESM Build
+  {
+    input: 'src/index.ts',
+    output: {
+      file: pkg.module,
+      format: 'es',
+      sourcemap: true,
+      exports: 'named'
+    },
+    external: ['@tensorflow/tfjs', '@vladmandic/face-api', 'jsqr'],
+    plugins: [
+      resolve({ browser: true }),
+      commonjs(),
+      json(),
+      typescript({
+        tsconfig: './tsconfig.json',
+        declaration: false
+      }),
+      !isDev && terser({
+        compress: {
+          drop_console: true
+        }
+      })
+    ].filter(Boolean),
+  }
+];
 
-export default getBuildTargets();
+export default configs;
