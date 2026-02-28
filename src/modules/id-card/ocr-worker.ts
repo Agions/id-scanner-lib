@@ -149,7 +149,7 @@ function parseIDCardText(text: string): IDCardInfo {
   const birthDateRegex2 = /出生[\s\:]*(\d{4})[-\/\.](\d{1,2})[-\/\.](\d{1,2})/;
   const birthDateRegex3 = /出生日期[\s\:]*(\d{4})[-\/\.\u5e74](\d{1,2})[-\/\.\u6708](\d{1,2})[日号]?/;
 
-  let birthDateMatch =
+  const birthDateMatch =
     processedText.match(birthDateRegex1) ||
     processedText.match(birthDateRegex2) ||
     processedText.match(birthDateRegex3);

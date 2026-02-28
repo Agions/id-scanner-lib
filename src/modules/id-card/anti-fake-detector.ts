@@ -136,7 +136,7 @@ export class AntiFakeDetector implements Disposable {
       detectedFeatures.length >= 2
 
     // 生成结果消息
-    let message = isAuthentic
+    const message = isAuthentic
       ? `身份证真实，检测到${detectedFeatures.length}个防伪特征`
       : detectedFeatures.length > 0
       ? `可疑身份证，仅检测到${detectedFeatures.length}个防伪特征，置信度不足`
@@ -456,7 +456,7 @@ export class AntiFakeDetector implements Disposable {
   } {
     const { data, width, height } = edgeData
     let edgeCount = 0
-    let totalPixels = width * height
+    const totalPixels = width * height
 
     // 计算边缘像素的数量
     for (let i = 0; i < data.length; i += 4) {

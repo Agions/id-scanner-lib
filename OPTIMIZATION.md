@@ -1,56 +1,37 @@
-# ID Scanner Lib 优化方案
+# id-scanner-lib 优化计划
 
-## 优化进度
+## 优化任务清单
 
-- [x] 构建问题修复
-- [x] TypeScript 类型错误修复
-- [x] 模型懒加载
-- [x] 内存优化
-- [x] 统一错误处理
-- [x] 加载状态管理
-- [x] 重试工具
-- [x] 异步缓存
-- [x] 信号量
-- [x] 通用类型
+### 1. ESLint 配置
+- [ ] 添加 ESLint 配置文件
+- [ ] 修复 lint 错误
 
----
+### 2. TypeScript 严格模式
+- [ ] 添加 tsconfig.strict.json
+- [ ] 修复类型错误
 
-## 新增 API
+### 3. 代码质量
+- [ ] 添加代码注释
+- [ ] 统一代码风格
 
-### 1. Retry 工具
-```typescript
-import { withRetry, createRetryable, AsyncCache, Semaphore } from 'id-scanner-lib';
+### 4. 性能优化
+- [ ] Bundle 大小优化
+- [ ] 依赖清理
 
-// 带重试的函数调用
-const result = await withRetry(async () => {
-  return await riskyOperation();
-}, { maxAttempts: 3, initialDelay: 1000 });
+### 5. 测试
+- [ ] 添加测试配置
+- [ ] 完善单元测试
 
-// 异步缓存
-const cache = new AsyncCache<string>(5 * 60 * 1000); // 5分钟 TTL
-const data = await cache.getOrSet('key', () => fetchData());
-
-// 信号量 (控制并发)
-const semaphore = new Semaphore(3); // 最多3个并发
-await semaphore.acquire();
-try {
-  // 执行操作
-} finally {
-  semaphore.release();
-}
-```
-
-### 2. 通用类型
-```typescript
-import { ModuleState, ImageSource, Rectangle, Point } from 'id-scanner-lib';
-```
+### 6. 文档
+- [ ] 完善 README
+- [ ] 添加 API 文档
 
 ---
 
-## 提交记录
-
-```
-d794105 feat: 添加重试工具和通用类型
-0e14cde feat: 添加内存优化和加载状态管理
-18459d8 feat: 优化构建和添加模型懒加载
-```
+## 执行顺序
+1. ESLint 配置
+2. TypeScript 配置  
+3. 代码质量
+4. 性能优化
+5. 测试
+6. 文档
