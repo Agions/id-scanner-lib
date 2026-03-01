@@ -30,7 +30,7 @@ const configs = [
         'jsqr': 'jsQR'
       }
     },
-    external: [],
+    external: ['@tensorflow/tfjs', '@vladmandic/face-api', 'jsqr', 'browser-image-compression', 'tesseract.js'],
     plugins: [
       resolve({ browser: true, preferBuiltins: false }),
       commonjs(),
