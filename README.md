@@ -219,6 +219,197 @@ const stream = await navigator.mediaDevices.getUserMedia({
 });
 ```
 
+### Q: 如何处理内存泄漏？
+
+A: 确保在使用完毕后释放资源：
+
+```typescript
+// 组件卸载时
+useEffect(() => {
+  return () => {
+    faceModule?.dispose();
+  };
+}, []);
+```
+
+### Q: 支持哪些图片格式？
+
+A: 支持 JPEG、PNG、WebP 等浏览器常见的图片格式。
+
+## TypeScript 类型
+
+完整类型定义请参考 [types](./src/types/) 目录。
+
+### 核心类型
+
+```typescript
+// 图像源
+type ImageSource = HTMLImageElement | HTMLCanvasElement | HTMLVideoElement | ImageData;
+
+// 矩形区域
+interface Rectangle {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+// 点坐标
+interface Point {
+  x: number;
+  y: number;
+}
+
+// 模块状态
+type ModuleState = 'idle' | 'loading' | 'ready' | 'error' | 'disposed';
+
+// 人脸检测结果
+interface FaceDetectionResult {
+  faces: Face[];
+  image: ImageData;
+}
+
+// 人脸详情
+interface Face {
+  box: Rectangle;
+  landmarks: Point[];
+  expressions?: Record<string, number>;
+  age?: number;
+  gender?: string;
+  embedding?: number[];
+}
+```
+
+## 错误处理
+
+### 错误类型
+
+```typescript
+import { ScannerError, ErrorCode } from 'id-scanner-lib';
+
+try {
+  await faceModule.initialize();
+} catch (error) {
+  if (error instanceof ScannerError) {
+    switch (error.code) {
+      case ErrorCode.CAMERA_NOT_FOUND:
+        // 处理摄像头未找到
+        break;
+      case ErrorCode.PERMISSION_DENIED:
+        // 处理权限被拒绝
+        break;
+      case ErrorCode.MODEL_LOAD_FAILED:
+        // 处理模型加载失败
+        break;
+    }
+  }
+}
+```
+
+### 错误代码
+
+| 代码 | 说明 |
+|------|------|
+| `CAMERA_NOT_FOUND` | 摄像头未找到 |
+| `PERMISSION_DENIED` | 权限被拒绝 |
+| `MODEL_LOAD_FAILED` | 模型加载失败 |
+| `INITIALIZATION_FAILED` | 初始化失败 |
+| `PROCESSING_FAILED` | 处理失败 |
+| `DISPOSED` | 模块已释放 |
+
+## 性能调优
+
+### 1. 调整检测频率
+
+```typescript
+const faceModule = new FaceModule({
+  // 降低检测频率以提升性能
+  detectionFrequency: 100, // ms
+});
+```
+
+### 2. 缩小检测区域
+
+```typescript
+const faceModule = new FaceModule({
+  // 只检测画面中心区域
+  detectionRegion: {
+    x: 0.25,
+    y: 0.25,
+    width: 0.5,
+    height: 0.5
+  }
+});
+```
+
+### 3. 使用 Web Worker
+
+```typescript
+// 身份证识别使用 Web Worker，不阻塞主线程
+const idCardModule = new IDCardModule({
+  useWorker: true
+});
+```
+
+### 4. 模型选择
+
+```typescript
+const faceModule = new FaceModule({
+  // 使用轻量级模型
+  modelType: 'tiny',
+  // 或者使用完整模型（更准确但更慢）
+  // modelType: 'full'
+});
+```
+
+## 浏览器兼容性
+
+| 浏览器 | 最低版本 | 支持情况 |
+|--------|---------|---------|
+| Chrome | 80+ | ✅ 完全支持 |
+| Firefox | 75+ | ✅ 完全支持 |
+| Safari | 14+ | ✅ 完全支持 |
+| Edge | 80+ | ✅ 完全支持 |
+| iOS Safari | 14+ | ✅ 完全支持 |
+| Android Chrome | 80+ | ✅ 完全支持 |
+
+### Polyfill
+
+如需支持旧版浏览器，请添加以下 polyfill：
+
+```html
+<script src="https://polyfill.io/v3/polyfill.min.js"></script>
+```
+
+## 项目结构
+
+```
+src/
+├── core/              # 核心功能
+│   ├── camera-manager.ts    # 摄像头管理
+│   ├── config.ts           # 配置管理
+│   ├── logger.ts           # 日志系统
+│   └── loading-state.ts    # 加载状态
+├── modules/           # 功能模块
+│   ├── face/         # 人脸模块
+│   ├── id-card/      # 身份证模块
+│   └── qrcode/       # 二维码模块
+├── utils/            # 工具函数
+│   ├── retry.ts      # 重试机制
+│   └── error-handler.ts # 错误处理
+└── types/            # 类型定义
+```
+
+## 贡献指南
+
+欢迎提交 Issue 和 Pull Request！
+
+1. Fork 本仓库
+2. 创建特性分支 (`git checkout -b feature/xxx`)
+3. 提交更改 (`git commit -m 'Add xxx'`)
+4. 推送分支 (`git push origin feature/xxx`)
+5. 创建 Pull Request
+
 ## 许可证
 
 MIT License
