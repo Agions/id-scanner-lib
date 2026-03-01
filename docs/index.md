@@ -3,7 +3,7 @@ layout: home
 hero:
   name: ID-Scanner-Lib
   text: 纯前端身份证与二维码识别库
-  tagline: 高性能、模块化的TypeScript身份证与二维码识别解决方案
+  tagline: 高性能、模块化的 TypeScript 身份验证解决方案
   image:
     src: /assets/logo.svg
     alt: ID-Scanner-Lib
@@ -12,10 +12,10 @@ hero:
       text: 快速开始
       link: /guide
     - theme: alt
-      text: API文档
+      text: API 文档
       link: /API
     - theme: alt
-      text: 在GitHub上查看
+      text: 在 GitHub 上查看
       link: https://github.com/agions/id-scanner-lib
 features:
   - icon: 🆔
@@ -32,95 +32,144 @@ features:
     details: 按需加载功能模块，优化应用体积
   - icon: 📱
     title: 多端适配
-    details: 同时支持PC和移动端，响应式设计
+    details: 同时支持 PC 和移动端，响应式设计
   - icon: ⚡
     title: 高性能处理
-    details: 优化的处理算法和Web Worker支持，流畅运行
+    details: 优化的处理算法和 Web Worker 支持，流畅运行
+
 ---
 
-## 简介
+<div class="stats">
 
-ID-Scanner-Lib 是一个纯前端实现的身份证与二维码识别库，用于在浏览器中进行高质量的图像处理、OCR文字识别、身份证信息提取和二维码扫描。所有功能均在浏览器端运行，无需服务器处理，确保用户数据安全。
+| 指标 | 数值 |
+|------|------|
+| 包体积 | <kbd>173KB</kbd> (gzip: ~60KB) |
+| TypeScript | ✅ 100% 类型支持 |
+| 浏览器兼容 | Chrome 80+ / Firefox 75+ / Safari 14+ |
+| 模块数量 | 3+ 核心模块 |
 
-## 主要特性
+</div>
 
-- **🆔 身份证识别** - 准确识别身份证正反面，自动提取姓名、身份证号、住址等信息
-- **📷 二维码扫描** - 支持多种二维码和条形码格式，实时扫描和图片解析
-- **👤 人脸识别** - 人脸检测、特征点定位和活体检测功能
-- **🧩 模块化设计** - 按需加载功能模块，优化应用体积
-- **📱 多端适配** - 同时支持PC和移动端，响应式设计
-- **⚡ 高性能处理** - 优化的处理算法和Web Worker支持，流畅运行
-- **🔒 隐私保护** - 纯客户端处理，数据不出浏览器
+## 为什么选择 ID-Scanner-Lib?
 
-## 安装
+<div class="benefits">
 
-使用 npm:
+### 🔒 隐私优先
+所有数据处理在客户端完成，敏感信息永不离开浏览器
+
+### ⚡ 高性能
+优化的 WebAssembly + Web Worker 架构，流畅处理高帧率视频流
+
+### 🧩 模块化
+按需加载，打包体积可控
+
+### 🌐 跨平台
+支持所有现代浏览器，PC / 移动端一致体验
+
+### 📖 完整文档
+中文文档 + 英文文档 + API 参考 + 在线演示
+
+### MIT 许可证
+开源免费，可商用
+
+</div>
+
+## 快速开始
 
 ```bash
-npm install id-scanner-lib --save
+# 安装
+npm install id-scanner-lib
 ```
 
-或者使用 yarn:
-
-```bash
-yarn add id-scanner-lib
-```
-
-## 基本用法
-
-```javascript
+```typescript
 import { IDScanner } from 'id-scanner-lib';
 
-// 创建扫描器实例
-const scanner = new IDScanner();
+// 初始化
+await IDScanner.initialize({ debug: true });
 
-// 初始化扫描器
-await scanner.initialize();
-
-// 获取身份证模块
-const idCardModule = scanner.getIDCardModule();
-
-// 识别身份证
-const imageElement = document.getElementById('idcard-image');
-const result = await idCardModule.recognize(imageElement);
-
-console.log('识别结果:', result);
+// 使用模块
+const idCard = scanner.getIDCardModule();
+const result = await idCard.recognize(imageElement);
 ```
 
 ## 在线演示
 
 <div class="demos">
-  <div class="demo-card">
-    <h3>身份证识别</h3>
-    <p>识别身份证并提取信息</p>
-    <a href="./demos/idcard.html">查看演示</a>
-  </div>
-  <div class="demo-card">
-    <h3>二维码扫描</h3>
-    <p>实时扫描多种码格式</p>
-    <a href="./demos/qrcode.html">查看演示</a>
-  </div>
-  <div class="demo-card">
-    <h3>人脸识别</h3>
-    <p>检测人脸和活体验证</p>
-    <a href="./demos/face.html">查看演示</a>
-  </div>
+
+[🆔 身份证识别 →](/demos/idcard)
+[📷 二维码扫描 →](/demos/qrcode)
+[👤 人脸识别 →](/demos/face)
+
 </div>
 
-## 为什么选择 ID-Scanner-Lib?
+## 生态
 
-- **纯前端实现**: 无需服务器处理，降低部署复杂度和成本
-- **完全开源**: 基于MIT许可证，可自由使用和修改
-- **专注性能**: 针对移动设备优化，确保流畅体验
-- **隐私优先**: 所有数据处理在客户端完成，不会上传敏感信息
-- **简单集成**: 提供易用的API和丰富的文档
+<div class="ecosystem">
 
-## 社区与支持
+| 项目 | 说明 |
+|------|------|
+| [id-scanner-lib](https://npmjs.com/package/id-scanner-lib) | 核心库 |
+| [id-scanner-react](https://npmjs.com/package/id-scanner-react) | React 组件 |
+| [id-scanner-vue](https://npmjs.com/package/id-scanner-vue) | Vue 3 组件 |
 
-- [GitHub仓库](https://github.com/agions/id-scanner-lib)
-- [问题反馈](https://github.com/agions/id-scanner-lib/issues)
-- [贡献指南](./contributing.html)
+</div>
 
-## 许可证
+<style>
+.stats {
+  margin: 32px 0;
+}
 
-MIT License 
+.stats table {
+  width: 100%;
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.stats kbd {
+  padding: 4px 8px;
+  background: var(--vp-c-bg-soft);
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.benefits {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 20px;
+  margin: 32px 0;
+}
+
+.benefits h3 {
+  font-size: 16px;
+  margin-bottom: 8px;
+}
+
+.demos {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+  margin: 24px 0;
+}
+
+.demos a {
+  padding: 12px 24px;
+  background: var(--vp-c-brand);
+  color: white;
+  border-radius: 8px;
+  text-decoration: none;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.demos a:hover {
+  background: var(--vp-c-brand-dark);
+}
+
+.ecosystem {
+  margin: 24px 0;
+}
+
+.ecosystem table {
+  max-width: 500px;
+}
+</style>
