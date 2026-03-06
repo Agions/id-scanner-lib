@@ -25,7 +25,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          registry-url: "https://registry.npmjs.org"
 
       - name: 安装依赖
         run: npm install --legacy-peer-deps
@@ -33,21 +32,8 @@ jobs:
       - name: 构建
         run: npm run build
 
-      - name: 配置NPM认证
+      - name: 发布到NPM
+        if: success()
         run: |
           echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
-
-      - name: 发布到NPM
-        run: npm publish --access public
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-
-      - name: 创建Release
-        if: github.event_name == 'workflow_dispatch'
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          tag_name: v${{ github.event.inputs.version }}
-          release_name: v${{ github.event.inputs.version }}
-          body: 'NPM包已发布'
+          npm publish --access public
