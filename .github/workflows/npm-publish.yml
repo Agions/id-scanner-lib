@@ -32,7 +32,7 @@ jobs:
         run: npm ci --legacy-peer-deps
 
       - name: 构建
-        run: npm run build
+        run: npx rimraf dist && npx rollup -c rollup.config.js
 
       - name: 发布到NPM
         if: success()
