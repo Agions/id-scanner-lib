@@ -6,13 +6,14 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: '版本号 (如 1.5.0)'
+        description: '版本号 (如 1.6.0)'
         required: false
         default: ''
   push:
     branches: [main]
     paths:
       - 'package.json'
+      - 'package-lock.json'
       - 'src/**'
 
 jobs:
@@ -25,9 +26,10 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: 'npm'
 
       - name: 安装依赖
-        run: npm install --legacy-peer-deps
+        run: npm ci --legacy-peer-deps
 
       - name: 构建
         run: npm run build
