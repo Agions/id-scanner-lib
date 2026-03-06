@@ -4,26 +4,31 @@ on:
   release:
     types: [created]
   workflow_dispatch:
+    inputs:
+      version:
+        description: '版本号 (如 1.5.0)'
+        required: false
+        default: ''
+  push:
+    branches: [main]
+    paths:
+      - 'package.json'
+      - 'src/**'
 
 jobs:
   build-and-publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: 设置Node.js环境
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
-          node-version: "16.x"
+          node-version: "20"
           registry-url: "https://registry.npmjs.org"
-          # 确保使用npm进行发布
-          scope: "@agions"
 
       - name: 安装依赖
-        run: npm install --legacy-peer-deps
-
-      # - name: 运行测试
-      #   run: npm test
+        run: npm install
 
       - name: 构建
         run: npm run build:prod
@@ -31,27 +36,18 @@ jobs:
       - name: 配置NPM认证
         run: |
           echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
-          npm whoami
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: 发布到NPM
         run: npm publish --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
-      - name: 更新发布状态
-        uses: actions/github-script@v6
+      - name: 创建Release
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          script: |
-            const { owner, repo } = context.repo;
-            const release = context.payload.release;
-            if (release) {
-              await github.rest.repos.updateRelease({
-                owner,
-                repo,
-                release_id: release.id,
-                body: release.body + "\n\n✅ NPM包已成功发布！"
-              });
-            }
+          tag_name: v${{ github.event.inputs.version }}
+          release_name: v${{ github.event.inputs.version }}
+          body: 'NPM包已发布'
