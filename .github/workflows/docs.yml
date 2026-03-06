@@ -42,7 +42,7 @@ jobs:
       - name: Build Documentation
         run: |
           cd docs
-          npm run docs:build
+          npm run build
 
       - name: Setup Pages
         uses: actions/configure-pages@v4
