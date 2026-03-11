@@ -11,10 +11,6 @@ on:
         default: ''
   push:
     branches: [main]
-    paths:
-      - 'package.json'
-      - 'package-lock.json'
-      - 'src/**'
 
 jobs:
   build-and-publish:
@@ -26,7 +22,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: 'npm'
+          registry-url: 'https://registry.npmjs.org'
 
       - name: 安装依赖
         run: npm ci --legacy-peer-deps
@@ -36,6 +32,6 @@ jobs:
 
       - name: 发布到NPM
         if: success()
-        run: |
-          echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
-          npm publish --access public
+        run: npm publish --access public --registry=https://registry.npmjs.org/
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
