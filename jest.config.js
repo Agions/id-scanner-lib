@@ -1,14 +1,16 @@
 module.exports = {
   preset: 'ts-jest',
   testEnvironment: 'jsdom',
-  roots: ['<rootDir>/src'],
+  roots: ['<rootDir>/src', '<rootDir>/tests'],
   testMatch: ['**/__tests__/**/*.ts', '**/?(*.)+(spec|test).ts'],
+  setupFilesAfterEnv: ['<rootDir>/tests/setup.ts'],
   transform: {
     '^.+\\.ts$': ['ts-jest', {
       tsconfig: {
         module: 'commonjs',
         esModuleInterop: true,
-        allowSyntheticDefaultImports: true
+        allowSyntheticDefaultImports: true,
+        target: 'ES2020'
       }
     }]
   },
@@ -19,5 +21,8 @@ module.exports = {
     '!src/**/*.test.ts'
   ],
   coverageDirectory: 'coverage',
-  verbose: true
+  verbose: true,
+  moduleNameMapper: {
+    '^@/(.*)$': '<rootDir>/src/$1'
+  }
 };
