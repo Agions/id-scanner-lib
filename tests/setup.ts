@@ -13,9 +13,9 @@ beforeAll(() => {
   global.requestAnimationFrame = jest.fn((cb) => setTimeout(cb, 16));
   global.cancelAnimationFrame = jest.fn((id) => clearTimeout(id));
   
-  // Mock WebGL
-  global.WebGLRenderingContext = jest.fn();
-  global.WebGL2RenderingContext = jest.fn();
+  // Mock WebGL (使用 as any 避免类型不匹配)
+  (global as any).WebGLRenderingContext = jest.fn();
+  (global as any).WebGL2RenderingContext = jest.fn();
 });
 
 // Mock canvas

@@ -1,10 +1,10 @@
 /**
- * 工具函数测试
+ * 重试机制测试
  */
 
-import { retry, retryWithBackoff } from '../src/utils/retry';
+import { withRetry, createRetryable } from '../../src/utils/retry';
 
-describe('retry', () => {
+describe('withRetry', () => {
   it('should retry on failure', async () => {
     let attempts = 0;
     const fn = async () => {
@@ -13,49 +13,48 @@ describe('retry', () => {
       return 'success';
     };
 
-    const result = await retry(fn, { maxAttempts: 3 });
+    // 使用较短的 initialDelay 加快测试
+    const result = await withRetry(fn, { maxAttempts: 3, initialDelay: 10 });
     expect(result).toBe('success');
     expect(attempts).toBe(3);
-  });
+  }, 10000);
 
   it('should throw after max attempts', async () => {
     const fn = async () => {
       throw new Error('Always fails');
     };
 
-    await expect(retry(fn, { maxAttempts: 3 })).rejects.toThrow('Always fails');
-  });
+    await expect(withRetry(fn, { maxAttempts: 3, initialDelay: 10 })).rejects.toThrow('Always fails');
+  }, 10000);
 
-  it('should respect delay option', async () => {
+  it('should respect initialDelay option', async () => {
     const start = Date.now();
     const fn = async () => {
       throw new Error('Failed');
     };
 
     try {
-      await retry(fn, { maxAttempts: 3, delay: 100 });
+      await withRetry(fn, { maxAttempts: 3, initialDelay: 50 });
     } catch (e) {
       // Expected
     }
 
     const elapsed = Date.now() - start;
-    expect(elapsed).toBeGreaterThanOrEqual(200);
+    expect(elapsed).toBeGreaterThanOrEqual(150);
   });
 });
 
-describe('retryWithBackoff', () => {
-  it('should increase delay with each attempt', async () => {
-    const delays: number[] = [];
+describe('createRetryable', () => {
+  it('should create a retryable function', async () => {
     let attempts = 0;
-
     const fn = async () => {
       attempts++;
-      delays.push(Date.now());
       if (attempts < 3) throw new Error('Failed');
       return 'success';
     };
 
-    await retryWithBackoff(fn, { maxAttempts: 3, baseDelay: 50 });
-    expect(attempts).toBe(3);
-  });
+    const retryable = createRetryable(fn, { initialDelay: 10 });
+    const result = await retryable();
+    expect(result).toBe('success');
+  }, 10000);
 });
