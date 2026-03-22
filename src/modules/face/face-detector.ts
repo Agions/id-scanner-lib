@@ -696,15 +696,16 @@ export class FaceDetector extends BaseScannerModule {
       
       // 限制检测数量
       const maxFaces = detectOptions.maxFaces || this.config.maxFaces;
-      if (Array.isArray(detections) && detections.length > maxFaces) {
-        detections = detections.slice(0, maxFaces);
+      const detectionsArray: any[] = Array.isArray(detections) ? detections : [detections];
+      if (detectionsArray.length > maxFaces) {
+        detectionsArray.length = maxFaces;
       }
       
       // 将结果转换为标准格式
       const results: FaceDetectionResult[] = [];
       const processingTime = Date.now() - startTime;
       
-      for (const detection of detections) {
+      for (const detection of detectionsArray) {
         const boundingBox: Rect = {
           x: detection.detection?.box.x || 0,
           y: detection.detection?.box.y || 0,
