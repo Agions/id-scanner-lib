@@ -31,9 +31,9 @@ export class IDScannerError extends Error {
     // 设置错误原因
     this.cause = options?.cause;
     
-    // 捕获堆栈
-    if (Error.captureStackTrace) {
-      Error.captureStackTrace(this, this.constructor);
+    // 捕获堆栈 (Node.js专有，浏览器环境忽略)
+    if (typeof (Error as any).captureStackTrace === 'function') {
+      (Error as any).captureStackTrace(this, this.constructor);
     }
   }
 }
