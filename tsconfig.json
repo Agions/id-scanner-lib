@@ -7,7 +7,9 @@
     "esModuleInterop": true,
     "lib": ["dom", "es2020"],
     "sourceMap": true,
-    "downlevelIteration": true
+    "downlevelIteration": true,
+    "skipLibCheck": true,
+    "skipDefaultLibCheck": true
   },
   "include": ["src/**/*"],
   "exclude": ["node_modules", "**/*.test.ts"]
