@@ -93,9 +93,11 @@ export function createRetryable<T extends (...args: any[]) => Promise<any>>(
   fn: T,
   options: RetryOptions = {}
 ): T {
-  return ((...args: Parameters<T>): Promise<ReturnType<T>> => {
+  const wrapped = (...args: Parameters<T>): Promise<ReturnType<T>> => {
     return withRetry(() => fn(...args), options);
-  }) as T;
+  };
+  Object.defineProperty(wrapped, 'name', { value: fn.name, configurable: true });
+  return wrapped as T;
 }
 
 /**
@@ -162,13 +164,15 @@ export class AsyncCache<T> {
    * 获取缓存大小
    */
   get size(): number {
-    // 清理过期项
+    // 清理过期项 (避免在迭代中删除)
     const now = Date.now();
+    const expiredKeys: string[] = [];
     for (const [key, entry] of this.cache.entries()) {
       if (now > entry.expiry) {
-        this.cache.delete(key);
+        expiredKeys.push(key);
       }
     }
+    expiredKeys.forEach(key => this.cache.delete(key));
     return this.cache.size;
   }
 

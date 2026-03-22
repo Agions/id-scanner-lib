@@ -4,6 +4,8 @@
  * @module Camera
  */
 
+import { Logger } from '../core/logger';
+
 /**
  * 相机配置选项接口
  * 
@@ -113,7 +115,8 @@ export class Camera {
         });
       }
     } catch (error) {
-      console.error('无法访问摄像头:', error);
+      const logger = Logger.getInstance();
+      logger.error('Camera', '无法访问摄像头', error instanceof Error ? error : undefined);
       throw new Error('无法访问摄像头。请确保已授予摄像头访问权限，并且摄像头未被其他应用程序占用。');
     }
   }

@@ -130,7 +130,7 @@ export class IDScanner {
   public async dispose(): Promise<void> {
     if (!this.initialized) {
       return;
-        }
+    }
     
     this.logger.info('IDScanner', '释放IDScanner资源');
     

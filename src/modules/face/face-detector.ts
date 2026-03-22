@@ -32,6 +32,21 @@ export enum FaceModelType {
 }
 
 /**
+ * 68点人脸关键点索引 (face-api 68-point model)
+ * 参考: https://github.com/justadudewhohacks/face-api.js/issues/175
+ */
+const FaceLandmarkIndex = {
+  LEFT_EYE: 36,
+  RIGHT_EYE: 45,
+  NOSE: 30,
+  MOUTH: 48,  // 上唇中心
+  LEFT_EYE_CORNER: 36,
+  RIGHT_EYE_CORNER: 45,
+  NOSE_TIP: 30,
+  MOUTH_CENTER: 57,
+} as const;
+
+/**
  * 人脸检测模块配置
  */
 export interface FaceDetectorConfig {
@@ -681,8 +696,8 @@ export class FaceDetector extends BaseScannerModule {
       
       // 限制检测数量
       const maxFaces = detectOptions.maxFaces || this.config.maxFaces;
-      if ((detections as any).length > maxFaces) {
-        detections = (detections as any).slice(0, maxFaces);
+      if (Array.isArray(detections) && detections.length > maxFaces) {
+        detections = detections.slice(0, maxFaces);
       }
       
       // 将结果转换为标准格式
@@ -710,27 +725,23 @@ export class FaceDetector extends BaseScannerModule {
         // 添加关键点
         if (detection.landmarks) {
           const positions = detection.landmarks.positions;
-          const leftEyeIdx = 36; // 面部68点模型中左眼的索引
-          const rightEyeIdx = 45; // 面部68点模型中右眼的索引
-          const noseIdx = 30; // 鼻尖
-          const mouthIdx = 57; // 嘴巴中心
           
           result.landmarks = {
             leftEye: {
-              x: positions[leftEyeIdx].x,
-              y: positions[leftEyeIdx].y
+              x: positions[FaceLandmarkIndex.LEFT_EYE].x,
+              y: positions[FaceLandmarkIndex.LEFT_EYE].y
             },
             rightEye: {
-              x: positions[rightEyeIdx].x,
-              y: positions[rightEyeIdx].y
+              x: positions[FaceLandmarkIndex.RIGHT_EYE].x,
+              y: positions[FaceLandmarkIndex.RIGHT_EYE].y
             },
             nose: {
-              x: positions[noseIdx].x,
-              y: positions[noseIdx].y
+              x: positions[FaceLandmarkIndex.NOSE].x,
+              y: positions[FaceLandmarkIndex.NOSE].y
             },
             mouth: {
-              x: positions[mouthIdx].x,
-              y: positions[mouthIdx].y
+              x: positions[FaceLandmarkIndex.MOUTH_CENTER].x,
+              y: positions[FaceLandmarkIndex.MOUTH_CENTER].y
             },
             points: positions.map((p: { x: any; y: any; }) => ({ x: p.x, y: p.y }))
           };
@@ -738,16 +749,18 @@ export class FaceDetector extends BaseScannerModule {
         
         // 添加表情属性
         if (detection.expressions) {
+          const emotion = {
+            angry: detection.expressions.angry,
+            disgust: detection.expressions.disgusted,
+            fear: detection.expressions.fearful,
+            happy: detection.expressions.happy,
+            neutral: detection.expressions.neutral,
+            sad: detection.expressions.sad,
+            surprise: detection.expressions.surprised
+          };
           result.attributes = {
-            emotion: {
-              angry: detection.expressions.angry,
-              disgust: detection.expressions.disgusted,
-              fear: detection.expressions.fearful,
-              happy: detection.expressions.happy,
-              neutral: detection.expressions.neutral,
-              sad: detection.expressions.sad,
-              surprise: detection.expressions.surprised
-            }
+            ...result.attributes,
+            emotion
           };
         }
         
