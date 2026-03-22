@@ -24,11 +24,24 @@ jobs:
           node-version: "22"
           registry-url: 'https://registry.npmjs.org'
 
+      - name: 安装pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: "9"
+
+      - name: 获取pnpm缓存
+        uses: actions/cache@v4
+        with:
+          path: ~/.pnpm-store
+          key: ${{ runner.os }}-pnpm-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-
+
       - name: 安装依赖
-        run: npm install --legacy-peer-deps --ignore-scripts
+        run: pnpm install
 
       - name: 构建
-        run: npx rimraf dist && npx rollup -c rollup.config.js
+        run: pnpm run build
 
       - name: 发布到NPM
         if: success()
