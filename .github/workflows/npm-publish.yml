@@ -38,7 +38,7 @@ jobs:
             ${{ runner.os }}-pnpm-
 
       - name: 安装依赖
-        run: pnpm install
+        run: pnpm install --no-frozen-lockfile
 
       - name: 构建
         run: pnpm run build
