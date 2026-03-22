@@ -25,10 +25,10 @@ jobs:
           registry-url: 'https://registry.npmjs.org'
 
       - name: 安装依赖
-        run: yarn install --ignore-engines --network-timeout 100000
+        run: npm install --legacy-peer-deps --ignore-scripts
 
       - name: 构建
-        run: yarn build
+        run: npx rimraf dist && npx rollup -c rollup.config.js
 
       - name: 发布到NPM
         if: success()
