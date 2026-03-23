@@ -219,18 +219,25 @@ export class RemoteLogHandler implements LogHandler {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify(entriesToSend),
-        // 不等待响应，避免阻塞
         keepalive: true
       }).catch((err: Error) => {
         console.error('Failed to send logs to remote server:', err);
+        
+        // 防止无限重试 - 如果失败次数过多，丢弃日志
+        if ((this as any)._sendCount > 10) {
+          console.warn('RemoteLogHandler: Max retry exceeded, discarding logs');
+          this.queue = [];  // 清空队列，避免内存泄漏
+          (this as any)._sendCount = 0;
+          return;
+        }
+        
         // 失败时把日志放回队列，但防止无限增长
         if (this.queue.length < this.maxQueueSize) {
-          // 限制放回的数量，防止内存溢出
           const maxReturn = Math.min(entriesToSend.length, this.maxQueueSize - this.queue.length);
           const returnedEntries = entriesToSend.slice(0, maxReturn);
           this.queue = [...returnedEntries, ...this.queue];
         }
-        // 重置发送计数，允许后续重试
+        
         (this as any)._sendCount = 0;
       });
     } catch (error) {

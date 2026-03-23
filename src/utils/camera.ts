@@ -105,15 +105,28 @@ export class Camera {
       // 绑定到视频元素
       if (this.videoElement) {
         this.videoElement.srcObject = this.stream;
-        await new Promise<void>((resolve) => {
+        
+        // 添加超时保护，防止永久挂起
+        const timeoutPromise = new Promise<never>((_, reject) => {
+          setTimeout(() => reject(new Error('摄像头初始化超时')), 10000); // 10秒超时
+        });
+        
+        const playPromise = new Promise<void>((resolve, reject) => {
           if (this.videoElement) {
             this.videoElement.onloadedmetadata = () => {
               if (this.videoElement) {
-                this.videoElement.play().then(() => resolve());
+                this.videoElement.play()
+                  .then(() => resolve())
+                  .catch(err => reject(err));
               }
             };
+            this.videoElement.onerror = () => reject(new Error('视频加载失败'));
+          } else {
+            reject(new Error('视频元素未初始化'));
           }
         });
+        
+        await Promise.race([playPromise, timeoutPromise]);
       }
     } catch (error) {
       const logger = Logger.getInstance();

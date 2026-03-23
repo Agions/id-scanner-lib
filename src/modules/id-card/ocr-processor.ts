@@ -140,7 +140,7 @@ export class OCRProcessor implements Disposable {
    * @param imageData 要处理的身份证图像数据
    * @returns 提取的身份证信息
    */
-  async processIDCard(imageData: ImageData): Promise<IDCardInfo> {
+  async processIDCard(imageData: ImageData): Promise<IDCardInfo | null> {
     if (!this.initialized) {
       await this.initialize()
     }
@@ -249,8 +249,8 @@ export class OCRProcessor implements Disposable {
       
       this.options.logger?.(`OCR识别错误: ${errorMessage}`);
       
-      // 返回空对象，避免完全失败
-      return {} as IDCardInfo
+      // 返回 null，让调用方知道识别失败
+      return null;
     }
   }
 
