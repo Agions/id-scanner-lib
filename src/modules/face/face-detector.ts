@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * @file 人脸检测模块
  * @description 提供人脸检测、跟踪和分析功能

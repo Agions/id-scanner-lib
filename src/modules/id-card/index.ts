@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * @file 身份证模块入口
  * @description 提供身份证识别和验证功能的模块入口

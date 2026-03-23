@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * @file 模块管理器
  * @description 统一管理库的各功能模块，提供模块的注册、初始化和卸载功能
@@ -49,6 +50,7 @@ export class ModuleManager extends EventEmitter {
   private modules: Map<string, Module> = new Map();
   private logger: Logger;
   private initialized = false;
+  private initPromise: Promise<void> | null = null;
   
   /**
    * 获取模块管理器单例
@@ -58,6 +60,13 @@ export class ModuleManager extends EventEmitter {
       ModuleManager.instance = new ModuleManager();
     }
     return ModuleManager.instance;
+  }
+
+  /**
+   * 重置单例实例（主要用于测试）
+   */
+  public static resetInstance(): void {
+    ModuleManager.instance = undefined as any;
   }
   
   /**

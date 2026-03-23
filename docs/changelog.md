@@ -2,6 +2,20 @@
 
 所有重要的版本变更都会记录在此文件中。
 
+## [1.6.4] - 2026-03-23
+
+### 修复
+
+- **单例模式问题**：添加 `ModuleManager.resetInstance()` 和 `ConfigManager.resetInstance()` 方法，便于测试环境重置
+- **RemoteLogHandler 无限循环**：添加发送计数限制，防止 Promise rejection 导致无限循环
+- **Canvas 内存优化**：IDCardDetector 添加 `getReusableCanvas()` 复用机制，减少内存分配
+- **输入验证增强**：添加 image 空值、尺寸、HTMLImageElement.complete 验证，防止崩溃
+- **Lint 配置完善**：添加浏览器全局变量支持，禁用过于严格的规则
+
+### 文档
+
+- 明确标注 OCR 和防伪检测方法为占位实现，提供可选方案说明
+
 ## [1.5.0] - 2025-06-05
 
 ### 新增

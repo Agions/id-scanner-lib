@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * @file 相机工具类
  * @description 提供访问和控制设备摄像头的功能

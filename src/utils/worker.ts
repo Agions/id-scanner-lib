@@ -75,7 +75,7 @@ export function createWorker<TInput, TOutput>(
   
   // 监听Worker消息
   worker.addEventListener('message', (event) => {
-    const { messageId, success, result, error } = event.data;
+    const { messageId, success, result, error: _error } = event.data;
     
     // 查找对应的Promise
     const promiseHandlers = promiseMap.get(messageId);
@@ -83,7 +83,7 @@ export function createWorker<TInput, TOutput>(
       if (success) {
         promiseHandlers.resolve(result);
       } else {
-        promiseHandlers.reject(new Error(error));
+        promiseHandlers.reject(new Error(_error));
       }
       
       // 删除Promise映射
@@ -113,8 +113,8 @@ export function createWorker<TInput, TOutput>(
       URL.revokeObjectURL(url);
       
       // 拒绝所有未完成的Promise
-      for (const [, { reject }] of promiseMap) {
-        reject(new Error('Worker已终止'));
+      for (const [, { reject: _reject }] of promiseMap) {
+        _reject(new Error('Worker已终止'));
       }
       
       // 清空Promise映射

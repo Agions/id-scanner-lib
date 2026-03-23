@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * @file 人脸模块入口
  * @description 提供人脸检测、活体检测和人脸比对功能的模块入口

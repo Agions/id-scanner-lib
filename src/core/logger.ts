@@ -200,6 +200,18 @@ export class RemoteLogHandler implements LogHandler {
     const entriesToSend = [...this.queue];
     this.queue = [];
     
+    // 防止在 fetch 失败时无限重试
+    const sendCount = (this as any)._sendCount || 0;
+    (this as any)._sendCount = sendCount + 1;
+    
+    // 如果发送次数过多，停止发送以防止无限循环
+    if (sendCount > 10) {
+      console.warn('RemoteLogHandler: Too many failed sends, stopping. Clear queue.');
+      this.queue = [];
+      (this as any)._sendCount = 0;
+      return;
+    }
+    
     try {
       fetch(this.endpoint, {
         method: 'POST',
@@ -209,12 +221,17 @@ export class RemoteLogHandler implements LogHandler {
         body: JSON.stringify(entriesToSend),
         // 不等待响应，避免阻塞
         keepalive: true
-      }).catch(err => {
+      }).catch((err: Error) => {
         console.error('Failed to send logs to remote server:', err);
         // 失败时把日志放回队列，但防止无限增长
         if (this.queue.length < this.maxQueueSize) {
-          this.queue = [...entriesToSend.slice(0, this.maxQueueSize - this.queue.length), ...this.queue];
+          // 限制放回的数量，防止内存溢出
+          const maxReturn = Math.min(entriesToSend.length, this.maxQueueSize - this.queue.length);
+          const returnedEntries = entriesToSend.slice(0, maxReturn);
+          this.queue = [...returnedEntries, ...this.queue];
         }
+        // 重置发送计数，允许后续重试
+        (this as any)._sendCount = 0;
       });
     } catch (error) {
       console.error('Error sending logs:', error);

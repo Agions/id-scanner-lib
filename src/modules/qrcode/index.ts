@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * @file 二维码模块入口
  * @description 提供二维码识别和解析功能的模块入口

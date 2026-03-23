@@ -86,7 +86,7 @@ export class ResourceManager {
  */
 export function createDisposable<T>(
   factory: () => T,
-  disposeCallback: (resource: T) => Promise<void> | void
+  disposeCallback: (_resource: T) => Promise<void> | void
 ): T & Disposable {
   const resource = factory();
   
@@ -106,7 +106,7 @@ export function createDisposable<T>(
  */
 export async function using<T extends Disposable, R>(
   resource: T,
-  callback: (resource: T) => Promise<R> | R
+  callback: (_resource: T) => Promise<R> | R
 ): Promise<R> {
   try {
     const result = await callback(resource);

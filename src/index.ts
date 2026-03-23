@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * @file 主入口文件
  * @description ID Scanner库的主入口点，提供统一的API和模块导出

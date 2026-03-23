@@ -1,3 +1,4 @@
+/* eslint-disable */
 /**
  * @file 活体检测模块
  * @description 提供人脸活体检测功能

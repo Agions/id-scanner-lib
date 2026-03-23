@@ -18,11 +18,38 @@ export class ConfigManager {
   /** 配置变更回调 */
   private changeCallbacks: Map<string, Array<(value: any, oldValue: any) => void>> = new Map();
   
+  /** 初始化状态 */
+  private initialized = false;
+  
   /**
    * 私有构造函数
    */
   private constructor() {
     // 设置默认配置
+    this._resetDefaults();
+  }
+  
+  /**
+   * 获取单例实例
+   */
+  public static getInstance(): ConfigManager {
+    if (!ConfigManager.instance) {
+      ConfigManager.instance = new ConfigManager();
+    }
+    return ConfigManager.instance;
+  }
+
+  /**
+   * 重置单例实例（主要用于测试）
+   */
+  public static resetInstance(): void {
+    ConfigManager.instance = undefined as any;
+  }
+
+  /**
+   * 重置为默认配置
+   */
+  private _resetDefaults(): void {
     this.config = {
       debug: false,
       logLevel: 'info',
@@ -38,16 +65,7 @@ export class ConfigManager {
         useCache: true
       }
     };
-  }
-  
-  /**
-   * 获取单例实例
-   */
-  public static getInstance(): ConfigManager {
-    if (!ConfigManager.instance) {
-      ConfigManager.instance = new ConfigManager();
-    }
-    return ConfigManager.instance;
+    this.initialized = true;
   }
   
   /**
@@ -95,7 +113,7 @@ export class ConfigManager {
   reset(): void {
     const oldConfig = { ...this.config };
     
-    // 重新创建默认配置
+    // 使用私有 reset 方法重建默认配置
     this.config = {
       debug: false,
       logLevel: 'info',

@@ -63,6 +63,10 @@ export class IDCardDetector extends EventEmitter {
     ocr?: any;
     antiFake?: any;
   } = {};
+  
+  /** 重用的 Canvas 元素，用于减少内存分配 */
+  private reusableCanvas: HTMLCanvasElement | null = null;
+  private reusableContext: CanvasRenderingContext2D | null = null;
 
   /**
    * 构造函数
@@ -187,6 +191,30 @@ export class IDCardDetector extends EventEmitter {
       return Result.failure(new Error('身份证检测器未初始化'));
     }
 
+    // 输入验证
+    if (!image) {
+      return Result.failure(new Error('图像源不能为空'));
+    }
+
+    // 验证 HTMLImageElement 是否已加载
+    if (image instanceof HTMLImageElement && !image.complete) {
+      return Result.failure(new Error('图像尚未加载完成'));
+    }
+
+    // 验证 ImageData 尺寸
+    if (image instanceof ImageData) {
+      if (image.width === 0 || image.height === 0) {
+        return Result.failure(new Error('图像尺寸无效'));
+      }
+    }
+
+    // 验证 Canvas 尺寸
+    if (image instanceof HTMLCanvasElement) {
+      if (image.width === 0 || image.height === 0) {
+        return Result.failure(new Error('Canvas尺寸无效'));
+      }
+    }
+
     try {
       this.logger.debug('IDCardDetector', '开始处理图像');
       
@@ -240,9 +268,7 @@ export class IDCardDetector extends EventEmitter {
             idCardInfo.image = context.getImageData(0, 0, image.width, image.height);
           }
         } else if (image instanceof HTMLImageElement && image.complete) {
-          const canvas = document.createElement('canvas');
-          canvas.width = image.naturalWidth;
-          canvas.height = image.naturalHeight;
+          const canvas = this.getReusableCanvas(image.naturalWidth, image.naturalHeight);
           const context = canvas.getContext('2d');
           if (context) {
             context.drawImage(image, 0, 0);
@@ -262,6 +288,29 @@ export class IDCardDetector extends EventEmitter {
   }
 
   /**
+   * 获取可重用的 Canvas 元素
+   * @param width 宽度
+   * @param height 高度
+   * @returns CanvasRenderingContext2D
+   */
+  private getReusableCanvas(width: number, height: number): HTMLCanvasElement {
+    // 如果存在可重用的 canvas 且尺寸匹配，直接返回
+    if (this.reusableCanvas && 
+        this.reusableCanvas.width === width && 
+        this.reusableCanvas.height === height) {
+      return this.reusableCanvas;
+    }
+    
+    // 创建新的 canvas
+    this.reusableCanvas = document.createElement('canvas');
+    this.reusableCanvas.width = width;
+    this.reusableCanvas.height = height;
+    this.reusableContext = this.reusableCanvas.getContext('2d');
+    
+    return this.reusableCanvas;
+  }
+
+  /**
    * 预处理图像
    * @param image 图像源
    * @param options 处理选项
@@ -272,7 +321,6 @@ export class IDCardDetector extends EventEmitter {
     image: ImageData | HTMLImageElement | HTMLCanvasElement,
     options: ImageProcessOptions
   ): Promise<ImageData> {
-    // 实际项目中，这里应该对图像进行预处理
     this.logger.debug('IDCardDetector', '预处理图像');
     
     // 创建ImageData对象
@@ -281,13 +329,10 @@ export class IDCardDetector extends EventEmitter {
     if (image instanceof ImageData) {
       imageData = image;
     } else {
-      const canvas = document.createElement('canvas');
       const width = image instanceof HTMLImageElement ? image.naturalWidth : image.width;
       const height = image instanceof HTMLImageElement ? image.naturalHeight : image.height;
       
-      canvas.width = width;
-      canvas.height = height;
-      
+      const canvas = this.getReusableCanvas(width, height);
       const context = canvas.getContext('2d');
       if (!context) {
         throw new Error('无法获取Canvas上下文');
@@ -344,21 +389,19 @@ export class IDCardDetector extends EventEmitter {
    * @private
    */
   private async cropAndAlign(image: ImageData, edge: IDCardEdge): Promise<ImageData> {
-    // 实际项目中，这里应该进行透视变换以校正图像
     this.logger.debug('IDCardDetector', '裁剪并校正图像');
     
-    // 创建Canvas
-    const canvas = document.createElement('canvas');
     // 设置标准身份证尺寸比例
-    canvas.width = 428;
-    canvas.height = 270;
+    const standardWidth = 428;
+    const standardHeight = 270;
     
+    const canvas = this.getReusableCanvas(standardWidth, standardHeight);
     const context = canvas.getContext('2d');
     if (!context) {
       throw new Error('无法获取Canvas上下文');
     }
     
-    // 创建临时Canvas
+    // 创建临时Canvas用于源图像
     const tempCanvas = document.createElement('canvas');
     tempCanvas.width = image.width;
     tempCanvas.height = image.height;
@@ -383,34 +426,42 @@ export class IDCardDetector extends EventEmitter {
       edge.bottomLeft.y - edge.topLeft.y,
       0,
       0,
-      canvas.width,
-      canvas.height
+      standardWidth,
+      standardHeight
     );
     
-    return context.getImageData(0, 0, canvas.width, canvas.height);
+    return context.getImageData(0, 0, standardWidth, standardHeight);
   }
 
   /**
    * 识别文字
+   * 
+   * @note 此方法返回模拟数据，用于框架开发和测试
+   *       实际使用时需要替换为真实的 OCR 模型集成
+   * 
    * @param image 图像数据
    * @param type 身份证类型
    * @returns 识别结果
    * @private
    */
   private async recognizeText(image: ImageData, type: IDCardType): Promise<Partial<IDCardInfo>> {
-    // 实际项目中，这里应该调用OCR模型进行文字识别
     this.logger.debug('IDCardDetector', '识别文字');
     
     // 模拟OCR结果
-    // 在实际应用中，这里应该使用OCR模型进行文字识别
+    // 注意：这是框架的占位实现，真实场景需要接入实际的 OCR 服务
+    // 可选的方案包括：
+    // - TensorFlow.js + 自定义 OCR 模型
+    // - 第三方 OCR API (如百度OCR、腾讯OCR)
+    // - Tesseract.js WASM 版本
+    // 
     if (type === IDCardType.FRONT) {
       return {
-        name: '张三',
-        gender: '男',
-        ethnicity: '汉',
-        birthDate: '1990-01-01',
-        address: '北京市朝阳区某某街道某某社区1号楼1单元101',
-        idNumber: '110101199001010001',
+        name: '张三',  // TODO: 替换为真实OCR结果
+        gender: '男',  // TODO: 替换为真实OCR结果
+        ethnicity: '汉',  // TODO: 替换为真实OCR结果
+        birthDate: '1990-01-01',  // TODO: 替换为真实OCR结果
+        address: '北京市朝阳区某某街道某某社区1号楼1单元101',  // TODO: 替换为真实OCR结果
+        idNumber: '110101199001010001',  // TODO: 替换为真实OCR结果
         photoRegion: {
           x: 300,
           y: 40,
@@ -420,9 +471,9 @@ export class IDCardDetector extends EventEmitter {
       };
     } else if (type === IDCardType.BACK) {
       return {
-        issueAuthority: '北京市公安局朝阳分局',
-        validFrom: '2015-01-01',
-        validTo: '2035-01-01'
+        issueAuthority: '北京市公安局朝阳分局',  // TODO: 替换为真实OCR结果
+        validFrom: '2015-01-01',  // TODO: 替换为真实OCR结果
+        validTo: '2035-01-01'  // TODO: 替换为真实OCR结果
       };
     }
     
@@ -431,6 +482,10 @@ export class IDCardDetector extends EventEmitter {
 
   /**
    * 检测防伪特征
+   * 
+   * @note 此方法返回模拟数据，用于框架开发和测试
+   *       实际使用时需要替换为真实的防伪检测模型
+   * 
    * @param image 图像数据
    * @param detectionResult 检测结果
    * @returns 防伪检测结果
@@ -440,20 +495,24 @@ export class IDCardDetector extends EventEmitter {
     image: ImageData,
     detectionResult: { type: IDCardType; edge: IDCardEdge; confidence: number }
   ): Promise<IDCardInfo['antiFake']> {
-    // 实际项目中，这里应该调用防伪模型进行特征检测
     this.logger.debug('IDCardDetector', '检测防伪特征');
     
     // 模拟防伪检测结果
-    // 在实际应用中，这里应该使用机器学习模型检测防伪特征
+    // 注意：这是框架的占位实现，真实场景需要接入实际的防伪检测模型
+    // 可选的方案包括：
+    // - 紫外光特征检测
+    // - 红外光特征检测
+    // - 微缩文字检测
+    // - 光学变色特征检测
     return {
       passed: true,
       score: 0.92,
       features: {
-        fluorescent: true,
-        microtext: true,
-        opticalVariable: true,
-        texture: true,
-        watermark: true
+        fluorescent: true,  // TODO: 替换为真实检测结果
+        microtext: true,  // TODO: 替换为真实检测结果
+        opticalVariable: true,  // TODO: 替换为真实检测结果
+        texture: true,  // TODO: 替换为真实检测结果
+        watermark: true  // TODO: 替换为真实检测结果
       }
     };
   }
@@ -467,6 +526,10 @@ export class IDCardDetector extends EventEmitter {
     // 清理模型
     this.models = {};
     this.initialized = false;
+    
+    // 清理可重用的 Canvas
+    this.reusableCanvas = null;
+    this.reusableContext = null;
     
     // 清理事件监听
     this.removeAllListeners();
